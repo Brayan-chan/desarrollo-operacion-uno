@@ -9,4 +9,9 @@ test('loads the dashboard and changes a task status', async ({ page }) => {
   await page.getByRole('button', { name: 'Cerrar tarea' }).click()
   await page.reload()
   await expect(page.getByRole('article').filter({ hasText: 'Progreso promedio' }).getByText('33%')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Agencia' }).click()
+  await page.getByRole('button', { name: /Desarrollo de software/ }).click()
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Desarrollo de software' })).toBeVisible()
 })
