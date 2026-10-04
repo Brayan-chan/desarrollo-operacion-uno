@@ -1,0 +1,15 @@
+import { Check, RefreshCcw, X } from 'lucide-react'
+import { scenarios } from '@/data/scenarios'
+import type { ScenarioKey } from '@/types/demo'
+
+export function ScenarioDialog({ current, onSelect, onClose, onRestore }: { current: ScenarioKey; onSelect: (key: ScenarioKey) => void; onClose: () => void; onRestore: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#172331]/30 p-0 backdrop-blur-[2px] sm:items-center sm:p-6" role="presentation">
+      <section role="dialog" aria-modal="true" aria-labelledby="scenario-title" className="max-h-[95vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl sm:rounded-2xl">
+        <div className="mb-6 flex items-start justify-between gap-4"><div><p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#694ba8]">Centro de demostración</p><h2 id="scenario-title" className="text-xl font-semibold">Modela una operación distinta</h2><p className="mt-1 max-w-lg text-sm text-slate-500">Cada escenario tiene datos aislados. Tus cambios permanecen guardados en este navegador.</p></div><button onClick={onClose} className="grid size-10 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100" aria-label="Cerrar centro de demostración"><X size={17} /></button></div>
+        <div className="grid gap-2 sm:grid-cols-2">{(Object.keys(scenarios) as ScenarioKey[]).map((key) => <button key={key} onClick={() => onSelect(key)} aria-pressed={key === current} className={`rounded-xl border p-4 text-left transition ${key === current ? 'border-[#aa91dd] bg-[#f8f5ff]' : 'border-slate-200 hover:border-slate-300'}`}><div className="mb-2 flex items-center justify-between"><span className="text-sm font-semibold">{scenarios[key].label}</span>{key === current && <Check size={16} className="text-[#694ba8]" />}</div><p className="text-xs leading-5 text-slate-500">{scenarios[key].description}</p></button>)}</div>
+        <div className="mt-6 flex flex-col gap-3 rounded-lg bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-semibold">Capacidades que se pueden personalizar</p><p className="mt-1 text-[11px] text-slate-500">Flujos de aprobación · permisos · formularios · automatizaciones · reportes · integraciones</p></div><button onClick={onRestore} className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100"><RefreshCcw size={13} />Restaurar datos</button></div>
+      </section>
+    </div>
+  )
+}
