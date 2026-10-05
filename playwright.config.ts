@@ -9,7 +9,7 @@ export default defineConfig({
   },
   projects: [{ name: 'chrome', use: { ...devices['Desktop Chrome'], channel: 'chrome' } }],
   webServer: {
-    command: 'pnpm dev --webpack -p 3100',
+    command: 'NEXT_E2E=1 pnpm dev --webpack -p 3100',
     url: 'http://localhost:3100',
     reuseExistingServer: true,
   },
