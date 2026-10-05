@@ -29,12 +29,13 @@ export function changeTaskStatus(workspace: Workspace, taskId: string, status: T
   if (!task || task.status === status) return workspace
   const timestamp = now.toISOString()
   const actor = workspace.people.find((person) => person.id === task.assigneeId) ?? workspace.people[0]
-  const tasks = workspace.tasks.map((item) => item.id === taskId ? { ...item, status, updatedAt: timestamp } : item)
+  const order = Math.max(-1, ...workspace.tasks.filter((item) => item.projectId === task.projectId && item.status === status).map((item) => item.order)) + 1
+  const tasks = workspace.tasks.map((item) => item.id === taskId ? { ...item, status, order, updatedAt: timestamp } : item)
   return refreshWorkspace({
     ...workspace,
     updatedAt: timestamp,
     tasks,
-    activities: [{ id: `activity-${taskId}-${now.getTime()}`, type: 'task.status_changed', entityType: 'task', entityId: taskId, actorId: actor.id, description: `movió ${task.title} a ${status.toLocaleLowerCase('es-MX')}`, createdAt: timestamp, metadata: { previousStatus: task.status, nextStatus: status } }, ...workspace.activities],
+    activities: [{ id: crypto.randomUUID(), type: 'task.status_changed', entityType: 'task', entityId: taskId, actorId: actor?.id ?? 'sistema', description: `movió ${task.title} a ${status.toLocaleLowerCase('es-MX')}`, createdAt: timestamp, metadata: { projectId: task.projectId, previousStatus: task.status, nextStatus: status } }, ...workspace.activities],
   }, getLocalDate(now))
 }
 
