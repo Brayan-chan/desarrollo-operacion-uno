@@ -1,8 +1,10 @@
-import { refreshWorkspace } from '@/lib/workspace'
+import { getLocalDate, refreshWorkspace } from '@/lib/workspace'
 import { WORKSPACE_SCHEMA_VERSION, type Person, type Scenario, type ScenarioKey, type Task, type Workspace } from '@/types/demo'
 
-const CREATED_AT = '2026-09-15T15:00:00.000Z'
-const UPDATED_AT = '2026-10-04T14:00:00.000Z'
+const dayOffset = (offset: number) => { const date = new Date(`${getLocalDate()}T12:00:00.000Z`); date.setUTCDate(date.getUTCDate() + offset); return date.toISOString().slice(0, 10) }
+const eventDate = (offset: number) => `${dayOffset(offset)}T16:00:00.000Z`
+const CREATED_AT = eventDate(-20)
+const UPDATED_AT = eventDate(0)
 
 export const people: Person[] = [
   { id: 'ana', name: 'Ana Torres', role: 'Dirección de proyectos', initials: 'AT', color: 'bg-[#f4b6c2]', avatarUrl: null, active: true },
@@ -12,12 +14,12 @@ export const people: Person[] = [
 ]
 
 const taskSeed: Omit<Task, 'projectId' | 'title' | 'tag'>[] = [
-  { id: 't1', assigneeId: 'ana', status: 'Completada', priority: 'Alta', dueDate: '2026-10-02', description: 'Alinear objetivos, entregables y responsables con el cliente.', order: 0, createdAt: CREATED_AT, updatedAt: '2026-10-02T16:00:00.000Z', dueState: 'Completada' },
-  { id: 't2', assigneeId: 'carlos', status: 'En progreso', priority: 'Media', dueDate: '2026-10-07', description: 'Definir la estructura de contenidos para las páginas principales.', order: 0, createdAt: CREATED_AT, updatedAt: '2026-10-04T12:00:00.000Z', dueState: 'En tiempo' },
-  { id: 't3', assigneeId: 'carlos', status: 'En revisión', priority: 'Alta', dueDate: '2026-10-09', description: 'Presentar rutas visuales y recibir aprobación interna.', order: 0, createdAt: CREATED_AT, updatedAt: '2026-10-04T10:00:00.000Z', dueState: 'En tiempo' },
-  { id: 't4', assigneeId: 'diego', status: 'Pendiente', priority: 'Baja', dueDate: '2026-10-12', description: 'Configurar repositorio, ambientes y convenciones técnicas.', order: 0, createdAt: CREATED_AT, updatedAt: CREATED_AT, dueState: 'En tiempo' },
-  { id: 't5', assigneeId: 'ana', status: 'Pendiente', priority: 'Alta', dueDate: '2026-10-14', description: 'Revisar avance y registrar decisiones de la sesión.', order: 1, createdAt: CREATED_AT, updatedAt: CREATED_AT, dueState: 'En tiempo' },
-  { id: 't6', assigneeId: 'lucia', status: 'Pendiente', priority: 'Media', dueDate: '2026-10-20', description: 'Confirmar analítica, dominios, contenidos y QA final.', order: 2, createdAt: CREATED_AT, updatedAt: CREATED_AT, dueState: 'En tiempo' },
+  { id: 't1', assigneeId: 'ana', status: 'Completada', priority: 'Alta', dueDate: dayOffset(-3), description: 'Alinear objetivos, entregables y responsables con el cliente.', order: 0, createdAt: CREATED_AT, updatedAt: eventDate(-3), dueState: 'Completada' },
+  { id: 't2', assigneeId: 'carlos', status: 'En progreso', priority: 'Media', dueDate: dayOffset(2), description: 'Definir la estructura de contenidos para las páginas principales.', order: 0, createdAt: CREATED_AT, updatedAt: eventDate(-1), dueState: 'En tiempo' },
+  { id: 't3', assigneeId: 'carlos', status: 'En revisión', priority: 'Alta', dueDate: dayOffset(4), description: 'Presentar rutas visuales y recibir aprobación interna.', order: 0, createdAt: CREATED_AT, updatedAt: eventDate(-1), dueState: 'En tiempo' },
+  { id: 't4', assigneeId: 'diego', status: 'Pendiente', priority: 'Baja', dueDate: dayOffset(7), description: 'Configurar repositorio, ambientes y convenciones técnicas.', order: 0, createdAt: CREATED_AT, updatedAt: CREATED_AT, dueState: 'En tiempo' },
+  { id: 't5', assigneeId: 'ana', status: 'Pendiente', priority: 'Alta', dueDate: dayOffset(9), description: 'Revisar avance y registrar decisiones de la sesión.', order: 1, createdAt: CREATED_AT, updatedAt: CREATED_AT, dueState: 'En tiempo' },
+  { id: 't6', assigneeId: 'lucia', status: 'Pendiente', priority: 'Media', dueDate: dayOffset(15), description: 'Confirmar analítica, dominios, contenidos y QA final.', order: 2, createdAt: CREATED_AT, updatedAt: CREATED_AT, dueState: 'En tiempo' },
 ]
 
 const createTasks = (projectId: string, titles: string[], tags: string[]) => taskSeed.map((task, index) => ({ ...task, projectId, title: titles[index], tag: tags[index] }))
@@ -33,18 +35,18 @@ function createWorkspace(scenario: ScenarioKey, projectName: string, client: str
     updatedAt: UPDATED_AT,
     people: people.map((person) => ({ ...person })),
     projects: [
-      { id: projectId, name: projectName, description: `Proyecto demostrativo para el escenario ${scenario}.`, client, status: 'Activo', startDate: '2026-09-15', dueDate: '2026-10-31', ownerId: 'ana', color: '#8d72c9', progress: 0, archived: false },
-      ...(secondaryProject ? [{ id: `${scenario}-secundario`, name: secondaryProject, description: 'Proyecto adicional para demostrar una operación con múltiples iniciativas.', client: 'Cliente secundario', status: 'Planeación' as const, startDate: '2026-10-01', dueDate: '2026-11-15', ownerId: 'lucia', color: '#59a77d', progress: 0, archived: false }] : []),
+      { id: projectId, name: projectName, description: `Proyecto demostrativo para el escenario ${scenario}.`, client, status: 'Activo', startDate: dayOffset(-20), dueDate: dayOffset(26), ownerId: 'ana', color: '#8d72c9', progress: 0, archived: false },
+      ...(secondaryProject ? [{ id: `${scenario}-secundario`, name: secondaryProject, description: 'Proyecto adicional para demostrar una operación con múltiples iniciativas.', client: 'Cliente secundario', status: 'Planeación' as const, startDate: dayOffset(-3), dueDate: dayOffset(40), ownerId: 'lucia', color: '#59a77d', progress: 0, archived: false }] : []),
     ],
     tasks: createTasks(projectId, titles, tags),
     activities: [
-      { id: `${scenario}-activity-1`, type: 'task.status_changed', entityType: 'task', entityId: 't1', actorId: 'ana', description: `completó ${titles[0]}`, createdAt: '2026-10-04T12:00:00.000Z', metadata: { previousStatus: 'En revisión', nextStatus: 'Completada' } },
-      { id: `${scenario}-activity-2`, type: 'task.status_changed', entityType: 'task', entityId: 't3', actorId: 'carlos', description: `movió ${titles[2]} a revisión`, createdAt: '2026-10-04T10:00:00.000Z', metadata: { previousStatus: 'En progreso', nextStatus: 'En revisión' } },
-      { id: `${scenario}-activity-3`, type: 'task.assigned', entityType: 'task', entityId: 't6', actorId: 'lucia', description: `fue asignada a ${titles[5]}`, createdAt: '2026-10-03T16:00:00.000Z', metadata: { assigneeId: 'lucia' } },
+      { id: `${scenario}-activity-1`, type: 'task.status_changed', entityType: 'task', entityId: 't1', actorId: 'ana', description: `completó ${titles[0]}`, createdAt: eventDate(0), metadata: { previousStatus: 'En revisión', nextStatus: 'Completada' } },
+      { id: `${scenario}-activity-2`, type: 'task.status_changed', entityType: 'task', entityId: 't3', actorId: 'carlos', description: `movió ${titles[2]} a revisión`, createdAt: eventDate(-1), metadata: { previousStatus: 'En progreso', nextStatus: 'En revisión' } },
+      { id: `${scenario}-activity-3`, type: 'task.assigned', entityType: 'task', entityId: 't6', actorId: 'lucia', description: `fue asignada a ${titles[5]}`, createdAt: eventDate(-2), metadata: { assigneeId: 'lucia' } },
     ],
     tour: { completed: false, dismissed: false },
   }
-  return refreshWorkspace(workspace, '2026-10-04')
+  return refreshWorkspace(workspace)
 }
 
 export const scenarios: Record<ScenarioKey, Scenario> = {

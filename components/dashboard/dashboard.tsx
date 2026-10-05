@@ -7,7 +7,8 @@ import { Plus, Sparkles } from 'lucide-react'
 import { scenarios } from '@/data/scenarios'
 import { useDemoWorkspace } from '@/hooks/use-demo-workspace'
 import { ACTIVE_SCENARIO_KEY, clearAllDemoData, createStorageSnapshot, readActiveScenario, restoreStorageSnapshot, type StorageSnapshot } from '@/lib/demo-storage'
-import { changeTaskStatus, createProject, createTask, deleteProject, deleteTask, duplicateTask, moveTask, setProjectArchived, updateProject, updateTask, type ProjectInput, type TaskInput } from '@/lib/workspace'
+import { calculateDueState, changeTaskStatus, createProject, createTask, deleteProject, deleteTask, duplicateTask, getLocalDate, moveTask, setProjectArchived, updateProject, updateTask, type ProjectInput, type TaskInput } from '@/lib/workspace'
+import { getProjectMetrics } from '@/lib/metrics'
 import type { Project, ScenarioKey, Status, Task } from '@/types/demo'
 import { DashboardHeader } from './header'
 import { KanbanBoard } from './kanban-board'
@@ -35,6 +36,7 @@ export function Dashboard() {
   const [projectForm, setProjectForm] = useState<Project | 'new' | null>(null)
   const [taskForm, setTaskForm] = useState<Task | 'new' | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{ kind: 'project' | 'task'; id: string } | null>(null)
+  const [today, setToday] = useState(() => getLocalDate())
   const scenario = scenarios[scenarioKey]
   const { workspace, setWorkspace, storageError, saveState, isHydrating, clearStorageError, restore } = useDemoWorkspace(scenarioKey, scenario.workspace, resetKey)
 
@@ -42,9 +44,15 @@ export function Dashboard() {
     setScenarioKey(readActiveScenario(window.localStorage))
   }, [])
 
-  const selectedTask = workspace.tasks.find((task) => task.id === selectedTaskId) ?? null
+  useEffect(() => {
+    const timer = window.setInterval(() => { const next = getLocalDate(); setToday((current) => current === next ? current : next) }, 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const storedSelectedTask = workspace.tasks.find((task) => task.id === selectedTaskId)
+  const selectedTask = storedSelectedTask ? { ...storedSelectedTask, dueState: calculateDueState(storedSelectedTask, today) } : null
   const currentProject = workspace.projects.find((project) => project.id === workspace.selectedProjectId) ?? workspace.projects.find((project) => !project.archived) ?? workspace.projects[0]
-  const projectTasks = workspace.tasks.filter((task) => task.projectId === currentProject?.id)
+  const projectTasks = workspace.tasks.filter((task) => task.projectId === currentProject?.id).map((task) => ({ ...task, dueState: calculateDueState(task, today) }))
   const filteredTasks = useMemo(() => {
     const query = search.trim().toLocaleLowerCase('es-MX')
     if (!query) return projectTasks
@@ -54,10 +62,7 @@ export function Dashboard() {
       return `${task.title} ${project?.name ?? ''} ${assignee?.name ?? ''} ${task.tag}`.toLocaleLowerCase('es-MX').includes(query)
     })
   }, [projectTasks, search, workspace.people, workspace.projects])
-  const completed = projectTasks.filter((task) => task.status === 'Completada').length
-  const active = projectTasks.filter((task) => task.status === 'En progreso' || task.status === 'En revisión').length
-  const overdue = projectTasks.filter((task) => task.dueState === 'Vencida').length
-  const activeProjects = workspace.projects.filter((project) => !project.archived && project.status !== 'Completado').length
+  const metrics = getProjectMetrics(workspace.projects, workspace.tasks, currentProject?.id ?? null, today)
   const displayDate = new Intl.DateTimeFormat('es-MX', { dateStyle: 'full', timeZone: 'America/Merida' }).format(new Date())
 
   const updateStatus = (id: string, status: Status) => {
@@ -158,11 +163,11 @@ export function Dashboard() {
             {storageError && <StorageAlert message={storageError.message} onDismiss={clearStorageError} onRestore={() => setConfirmAction('scenario')} />}
             {isHydrating ? <div className="grid min-h-[320px] place-items-center rounded-xl bg-white text-sm text-slate-500">Cargando espacio de trabajo…</div> : <>
             <ProjectToolbar projects={workspace.projects} selectedId={currentProject?.id ?? null} onSelect={(id) => { setWorkspace((current) => ({ ...current, selectedProjectId: id, updatedAt: new Date().toISOString() })); setSearch(''); setSelectedTaskId(null) }} onCreateProject={() => setProjectForm('new')} onEditProject={setProjectForm} onArchiveProject={(project) => { const result = setWorkspace((current) => setProjectArchived(current, project.id, !project.archived)); setNotice(result?.ok ? project.archived ? 'Proyecto reactivado.' : 'Proyecto archivado.' : 'No se pudo actualizar el proyecto.') }} onDeleteProject={requestDeleteProject} onCreateTask={() => setTaskForm('new')} />
-            <StatsGrid projects={activeProjects} pending={projectTasks.length - completed} active={active} progress={currentProject?.progress ?? 0} />
+            <StatsGrid projects={metrics.activeProjects} pending={metrics.pending} active={metrics.inProgress} overdue={metrics.overdue} progress={metrics.progress} total={metrics.total} />
             {!currentProject ? <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center"><h3 className="text-lg font-semibold">Todavía no hay proyectos</h3><p className="mt-2 text-sm text-slate-500">Crea un proyecto para organizar tus tareas.</p><button onClick={() => setProjectForm('new')} className="mt-5 min-h-11 rounded-lg bg-[#192735] px-4 text-sm font-semibold text-white">Crear primer proyecto</button></div> : <>
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
               <KanbanBoard tasks={filteredTasks} people={workspace.people} search={search} onSearch={setSearch} onSelectTask={(task: Task) => setSelectedTaskId(task.id)} onMoveTask={moveBoardTask} />
-              <ProjectSummary project={currentProject} tasksCount={projectTasks.length} completed={completed} overdue={overdue} people={workspace.people} activities={workspace.activities.filter((activity) => activity.metadata.projectId === currentProject.id || activity.entityId === currentProject.id || projectTasks.some((task) => task.id === activity.entityId))} />
+              <ProjectSummary project={currentProject} tasksCount={metrics.total} completed={metrics.completed} overdue={metrics.overdue} progress={metrics.progress} today={today} people={workspace.people} activities={workspace.activities.filter((activity) => activity.metadata.projectId === currentProject.id || activity.entityId === currentProject.id || projectTasks.some((task) => task.id === activity.entityId))} />
             </div>
             </>}
             <div className="mt-8 flex flex-col gap-3 rounded-xl border border-[#ddd2f3] bg-[#f7f4ff] p-5 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-start gap-3"><div className="grid size-9 shrink-0 place-items-center rounded-lg bg-white text-[#694ba8] shadow-sm"><Sparkles size={17} /></div><div><p className="text-sm font-semibold text-[#4e3e79]">No es otro tablero. Es una operación adaptable.</p><p className="mt-1 text-xs leading-5 text-[#665985]">Explora escenarios para ver cómo Operación Uno modela procesos distintos: aprobaciones, responsables, dependencias y entregas.</p></div></div><button onClick={() => setShowScenario(true)} className="min-h-10 shrink-0 rounded-lg bg-[#694ba8] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#5c4098]">Abrir centro de demo</button></div>
