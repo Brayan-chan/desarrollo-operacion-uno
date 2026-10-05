@@ -1,5 +1,6 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
+import 'driver.js/dist/driver.css'
 import './globals.css'
 
 export const metadata: Metadata = {
