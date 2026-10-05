@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { loadWorkspace, removeScenario, saveWorkspace, type StorageFailure } from '@/lib/demo-storage'
 import type { ScenarioKey, TourState, Workspace } from '@/types/demo'
+import { refreshWorkspace } from '@/lib/workspace'
 
 export type SaveState = 'loading' | 'saved' | 'error'
 
@@ -15,7 +16,7 @@ export function useDemoWorkspace(scenarioKey: ScenarioKey, initialWorkspace: Wor
 
   useEffect(() => {
     const result = loadWorkspace(window.localStorage, scenarioKey, initialWorkspace)
-    setLoaded({ key: scenarioKey, workspace: result.ok ? result.value.workspace : initialWorkspace })
+    setLoaded({ key: scenarioKey, workspace: result.ok ? result.value.workspace : refreshWorkspace(initialWorkspace) })
     setStorageError(result.ok ? null : result)
     setSaveState(result.ok ? 'saved' : 'error')
     if (result.ok && result.value.source === 'migrated') {
@@ -37,7 +38,7 @@ export function useDemoWorkspace(scenarioKey: ScenarioKey, initialWorkspace: Wor
   const restore = useCallback(() => {
     const result = removeScenario(window.localStorage, scenarioKey)
     if (result.ok) {
-      setLoaded({ key: scenarioKey, workspace: initialWorkspace })
+      setLoaded({ key: scenarioKey, workspace: refreshWorkspace(initialWorkspace) })
       setStorageError(null)
       setSaveState('saved')
     } else {
