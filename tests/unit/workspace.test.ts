@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { scenarios } from '@/data/scenarios'
-import { calculateDueState, calculateProjectProgress, changeTaskStatus, createProject, createTask, deleteProject, deleteTask, duplicateTask, setProjectArchived, updateTask, validateProject, validateTask } from '@/lib/workspace'
+import { calculateDueState, calculateProjectProgress, changeTaskStatus, createProject, createTask, deleteProject, deleteTask, duplicateTask, moveTask, setProjectArchived, updateTask, validateProject, validateTask } from '@/lib/workspace'
 
 describe('workspace domain', () => {
   it('calculates task due state', () => {
@@ -62,5 +62,17 @@ describe('workspace domain', () => {
     const removed = deleteTask(duplicated, added.id)
     expect(removed.tasks.some((item) => item.id === added.id)).toBe(false)
     expect(removed.activities[0].type).toBe('task.deleted')
+  })
+
+  it('moves tasks across columns and reorders within a column', () => {
+    const initial = scenarios.agencia.workspace
+    const moved = moveTask(initial, 't4', 'Completada', 0, new Date('2026-10-05T12:00:00.000Z'))
+    expect(moved.tasks.find((task) => task.id === 't4')).toMatchObject({ status: 'Completada', order: 0, dueState: 'Completada' })
+    expect(moved.projects.find((project) => project.id === 'agencia-principal')?.progress).toBe(33)
+    expect(moved.activities[0]).toMatchObject({ type: 'task.status_changed', entityId: 't4', metadata: { previousStatus: 'Pendiente', nextStatus: 'Completada', nextOrder: 0 } })
+    const reordered = moveTask(initial, 't6', 'Pendiente', 0, new Date('2026-10-05T13:00:00.000Z'))
+    expect(reordered.tasks.filter((task) => task.status === 'Pendiente').sort((a, b) => a.order - b.order).map((task) => task.id)).toEqual(['t6', 't4', 't5'])
+    expect(reordered.activities[0].description).toContain('reordenó')
+    expect(moveTask(reordered, 't6', 'Pendiente', 0)).toBe(reordered)
   })
 })

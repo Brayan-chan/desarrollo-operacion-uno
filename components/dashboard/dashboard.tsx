@@ -7,7 +7,7 @@ import { Plus, Sparkles } from 'lucide-react'
 import { scenarios } from '@/data/scenarios'
 import { useDemoWorkspace } from '@/hooks/use-demo-workspace'
 import { ACTIVE_SCENARIO_KEY, clearAllDemoData, createStorageSnapshot, readActiveScenario, restoreStorageSnapshot, type StorageSnapshot } from '@/lib/demo-storage'
-import { changeTaskStatus, createProject, createTask, deleteProject, deleteTask, duplicateTask, setProjectArchived, updateProject, updateTask, type ProjectInput, type TaskInput } from '@/lib/workspace'
+import { changeTaskStatus, createProject, createTask, deleteProject, deleteTask, duplicateTask, moveTask, setProjectArchived, updateProject, updateTask, type ProjectInput, type TaskInput } from '@/lib/workspace'
 import type { Project, ScenarioKey, Status, Task } from '@/types/demo'
 import { DashboardHeader } from './header'
 import { KanbanBoard } from './kanban-board'
@@ -64,6 +64,13 @@ export function Dashboard() {
     const result = setWorkspace((current) => changeTaskStatus(current, id, status))
     setNotice(result?.ok ? 'Cambio guardado en este navegador.' : 'El cambio no se pudo guardar.')
     setUndoSnapshot(null)
+  }
+
+  const moveBoardTask = (id: string, status: Status, index: number) => {
+    const snapshot = createStorageSnapshot(window.localStorage)
+    const result = setWorkspace((current) => moveTask(current, id, status, index))
+    setNotice(result?.ok ? 'Movimiento guardado en este navegador.' : 'No se pudo guardar el movimiento.')
+    setUndoSnapshot(result?.ok && snapshot.ok ? snapshot.value : null)
   }
 
   const saveProject = (input: ProjectInput) => {
@@ -154,7 +161,7 @@ export function Dashboard() {
             <StatsGrid projects={activeProjects} pending={projectTasks.length - completed} active={active} progress={currentProject?.progress ?? 0} />
             {!currentProject ? <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center"><h3 className="text-lg font-semibold">Todavía no hay proyectos</h3><p className="mt-2 text-sm text-slate-500">Crea un proyecto para organizar tus tareas.</p><button onClick={() => setProjectForm('new')} className="mt-5 min-h-11 rounded-lg bg-[#192735] px-4 text-sm font-semibold text-white">Crear primer proyecto</button></div> : <>
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-              <KanbanBoard tasks={filteredTasks} people={workspace.people} search={search} onSearch={setSearch} onSelectTask={(task: Task) => setSelectedTaskId(task.id)} />
+              <KanbanBoard tasks={filteredTasks} people={workspace.people} search={search} onSearch={setSearch} onSelectTask={(task: Task) => setSelectedTaskId(task.id)} onMoveTask={moveBoardTask} />
               <ProjectSummary project={currentProject} tasksCount={projectTasks.length} completed={completed} overdue={overdue} people={workspace.people} activities={workspace.activities.filter((activity) => activity.metadata.projectId === currentProject.id || activity.entityId === currentProject.id || projectTasks.some((task) => task.id === activity.entityId))} />
             </div>
             </>}

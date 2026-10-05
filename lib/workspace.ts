@@ -39,6 +39,27 @@ export function changeTaskStatus(workspace: Workspace, taskId: string, status: T
   }, getLocalDate(now))
 }
 
+export function moveTask(workspace: Workspace, taskId: string, status: TaskStatus, targetIndex: number, now = new Date()): Workspace {
+  const task = workspace.tasks.find((item) => item.id === taskId)
+  if (!task) return workspace
+  const source = workspace.tasks.filter((item) => item.projectId === task.projectId && item.status === task.status).sort((a, b) => a.order - b.order)
+  const destination = (status === task.status ? source : workspace.tasks.filter((item) => item.projectId === task.projectId && item.status === status).sort((a, b) => a.order - b.order)).filter((item) => item.id !== taskId)
+  const index = Math.max(0, Math.min(targetIndex, destination.length))
+  if (status === task.status && source.findIndex((item) => item.id === taskId) === index) return workspace
+  const timestamp = now.toISOString()
+  destination.splice(index, 0, { ...task, status, updatedAt: timestamp })
+  const positions = new Map(destination.map((item, position) => [item.id, { status, order: position }]))
+  if (status !== task.status) source.filter((item) => item.id !== taskId).forEach((item, position) => positions.set(item.id, { status: task.status, order: position }))
+  const tasks = workspace.tasks.map((item) => {
+    const next = positions.get(item.id)
+    return next ? { ...item, ...next, updatedAt: item.id === taskId ? timestamp : item.updatedAt } : item
+  })
+  const actorId = workspace.people.find((person) => person.id === task.assigneeId)?.id ?? workspace.people[0]?.id ?? 'sistema'
+  const description = status === task.status ? `reordenó ${task.title} en ${status.toLocaleLowerCase('es-MX')}` : `movió ${task.title} a ${status.toLocaleLowerCase('es-MX')}`
+  const next = logActivity({ ...workspace, tasks }, status === task.status ? 'task.reordered' : 'task.status_changed', 'task', taskId, description, actorId, now, { projectId: task.projectId, previousStatus: task.status, nextStatus: status, previousOrder: task.order, nextOrder: index })
+  return refreshWorkspace(next, getLocalDate(now))
+}
+
 export type ProjectInput = Pick<Project, 'name' | 'description' | 'client' | 'status' | 'startDate' | 'dueDate' | 'ownerId' | 'color'>
 export type TaskInput = Pick<Task, 'projectId' | 'title' | 'description' | 'status' | 'priority' | 'assigneeId' | 'dueDate' | 'tag'>
 export type FieldErrors = Record<string, string>

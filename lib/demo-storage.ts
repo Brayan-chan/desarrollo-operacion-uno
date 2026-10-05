@@ -20,7 +20,7 @@ const taskStatuses = ['Pendiente', 'En progreso', 'En revisión', 'Completada']
 const priorities = ['Alta', 'Media', 'Baja']
 const projectStatuses = ['Planeación', 'Activo', 'En pausa', 'Completado']
 const dueStates = ['Sin fecha', 'En tiempo', 'Vence hoy', 'Vencida', 'Completada']
-const activityTypes = ['workspace.created', 'task.created', 'task.updated', 'task.status_changed', 'task.assigned', 'task.duplicated', 'task.deleted', 'project.created', 'project.updated', 'project.archived', 'project.unarchived', 'project.deleted']
+const activityTypes = ['workspace.created', 'task.created', 'task.updated', 'task.status_changed', 'task.reordered', 'task.assigned', 'task.duplicated', 'task.deleted', 'project.created', 'project.updated', 'project.archived', 'project.unarchived', 'project.deleted']
 const entityTypes = ['workspace', 'project', 'task', 'person']
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object'
