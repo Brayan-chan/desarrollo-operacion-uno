@@ -15,7 +15,7 @@ export function StatsGrid({ projects, pending, active, overdue, progress, total 
   return (
     <div data-tour="metrics" className="mb-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
       {metrics.map(({ label, value, detail, icon: Icon }) => (
-        <article key={label} className="rounded-xl border border-slate-200 bg-white p-5 shadow-[0_2px_8px_rgba(24,34,48,0.03)]">
+        <article key={label} data-tour={label === 'Progreso del proyecto' ? 'progress' : undefined} className="rounded-xl border border-slate-200 bg-white p-5 shadow-[0_2px_8px_rgba(24,34,48,0.03)]">
           <div className="mb-5 flex items-center justify-between"><span className="text-sm text-slate-500">{label}</span><Icon size={17} className="text-slate-300" /></div>
           <strong className="text-3xl font-semibold tracking-tight">{value}</strong><p className="mt-2 text-[11px] leading-4 text-slate-500">{detail}</p>
         </article>
