@@ -2,7 +2,7 @@ import type { Activity, Person, Project } from '@/types/demo'
 import { Avatar } from './avatar'
 import { formatActivityDateMX } from '@/lib/metrics'
 
-export function ProjectSummary({ project, tasksCount, completed, overdue, progress, today, people, activities }: { project: Project; tasksCount: number; completed: number; overdue: number; progress: number; today: string; people: Person[]; activities: Activity[] }) {
+export function ProjectSummary({ project, tasksCount, completed, overdue, progress, today, people, activities, onViewAll }: { project: Project; tasksCount: number; completed: number; overdue: number; progress: number; today: string; people: Person[]; activities: Activity[]; onViewAll: () => void }) {
   return (
     <aside className="flex flex-col gap-6">
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-[0_2px_8px_rgba(24,34,48,0.03)]">
@@ -12,7 +12,7 @@ export function ProjectSummary({ project, tasksCount, completed, overdue, progre
         <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-4 text-center"><div><strong className="block text-lg">{tasksCount}</strong><span className="text-[10px] text-slate-500">Tareas</span></div><div><strong className="block text-lg">{completed}</strong><span className="text-[10px] text-slate-500">Completadas</span></div><div><strong className="block text-lg">{overdue}</strong><span className="text-[10px] text-slate-500">Vencidas</span></div></div>
       </section>
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-[0_2px_8px_rgba(24,34,48,0.03)]">
-        <h3 className="mb-5 font-semibold">Actividad reciente</h3>
+        <div className="mb-5 flex items-center justify-between"><h3 className="font-semibold">Actividad reciente</h3><button onClick={onViewAll} className="text-xs font-medium text-[#694ba8]">Ver todo</button></div>
         <div className="flex flex-col gap-4">{activities.slice(0, 3).map((activity) => { const actor = people.find((person) => person.id === activity.actorId); return <div key={activity.id} className="flex gap-3"><Avatar small person={actor} /><div className="min-w-0"><p className="text-xs leading-5 text-slate-600"><strong className="font-semibold text-slate-800">{actor?.name ?? 'Sistema'}</strong> {activity.description}</p><time dateTime={activity.createdAt} className="mt-0.5 block text-[10px] text-slate-500">{formatActivityDateMX(activity.createdAt, today)}</time></div></div> })}{activities.length === 0 && <p className="text-xs text-slate-500">Todavía no hay actividad en este proyecto.</p>}</div>
       </section>
     </aside>

@@ -22,10 +22,12 @@ import { ConfirmDialog } from './confirm-dialog'
 import { ProjectForm } from './project-form'
 import { TaskForm } from './task-form'
 import { ProjectToolbar } from './project-toolbar'
+import { FocusedView } from './focused-view'
 
 export function Dashboard() {
   const [scenarioKey, setScenarioKey] = useState<ScenarioKey>('agencia')
   const [activeView, setActiveView] = useState('Inicio')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [showScenario, setShowScenario] = useState(false)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
@@ -155,23 +157,24 @@ export function Dashboard() {
     <main className="min-h-screen bg-[#f6f7f9] text-[#182230]">
       <div className="flex min-h-screen">
         <Sidebar activeView={activeView} onNavigate={setActiveView} onOpenDemo={() => setShowScenario(true)} />
+        {mobileMenuOpen && <><button onClick={() => setMobileMenuOpen(false)} aria-label="Cerrar menú móvil" className="fixed inset-0 z-[65] bg-[#172331]/50 lg:hidden" /><Sidebar mobile activeView={activeView} onNavigate={setActiveView} onOpenDemo={() => setShowScenario(true)} onClose={() => setMobileMenuOpen(false)} /></>}
         <section className="min-w-0 flex-1">
-          <DashboardHeader activeView={activeView} scenarioLabel={scenario.label} person={workspace.people[0]} onOpenDemo={() => setShowScenario(true)} />
+          <DashboardHeader activeView={activeView} scenarioLabel={scenario.label} person={workspace.people[0]} tasks={workspace.tasks.map((task) => ({ ...task, dueState: calculateDueState(task, today) }))} onOpenDemo={() => setShowScenario(true)} onOpenMenu={() => setMobileMenuOpen(true)} onOpenTask={(task) => { setActiveView('Tareas'); setSelectedTaskId(task.id) }} onNavigate={setActiveView} />
           <div className="mx-auto max-w-[1500px] px-5 py-7 sm:px-8 lg:px-10">
-            <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="mb-2 text-sm capitalize text-slate-500">{displayDate}</p><h2 className="text-3xl font-semibold tracking-[-0.04em] text-[#192735]">Vista general</h2><p className="mt-2 max-w-xl text-sm text-slate-500">Una lectura rápida de lo que está pasando y de lo que necesita atención.</p></div><button data-tour="new-project" onClick={() => setProjectForm('new')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#192735] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-[#263a4b]"><Plus size={16} />Nuevo proyecto</button></div>
+            <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="mb-2 text-sm capitalize text-slate-500">{displayDate}</p><h2 className="text-3xl font-semibold tracking-[-0.04em] text-[#192735]">{activeView === 'Inicio' ? 'Vista general' : activeView}</h2><p className="mt-2 max-w-xl text-sm text-slate-500">{activeView === 'Inicio' ? 'Una lectura rápida de lo que está pasando y de lo que necesita atención.' : 'Información de este escenario, guardada en tu navegador.'}</p></div>{activeView === 'Inicio' && <button data-tour="new-project" onClick={() => setProjectForm('new')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#192735] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-[#263a4b]"><Plus size={16} />Nuevo proyecto</button>}</div>
             <div className="mb-4 flex items-center justify-between gap-3 text-xs text-slate-500"><span aria-live="polite">{isHydrating ? 'Cargando datos locales…' : saveState === 'error' ? 'Cambios sin guardar' : 'Guardado en este navegador'}</span>{notice && <span role="status">{notice} {undoSnapshot && <button onClick={undo} className="ml-2 font-semibold text-[#694ba8] underline">Deshacer</button>}</span>}</div>
             {storageError && <StorageAlert message={storageError.message} onDismiss={clearStorageError} onRestore={() => setConfirmAction('scenario')} />}
-            {isHydrating ? <div className="grid min-h-[320px] place-items-center rounded-xl bg-white text-sm text-slate-500">Cargando espacio de trabajo…</div> : <>
+            {isHydrating ? <div className="grid min-h-[320px] place-items-center rounded-xl bg-white text-sm text-slate-500">Cargando espacio de trabajo…</div> : activeView === 'Inicio' ? <>
             <ProjectToolbar projects={workspace.projects} selectedId={currentProject?.id ?? null} onSelect={(id) => { setWorkspace((current) => ({ ...current, selectedProjectId: id, updatedAt: new Date().toISOString() })); setSearch(''); setSelectedTaskId(null) }} onCreateProject={() => setProjectForm('new')} onEditProject={setProjectForm} onArchiveProject={(project) => { const result = setWorkspace((current) => setProjectArchived(current, project.id, !project.archived)); setNotice(result?.ok ? project.archived ? 'Proyecto reactivado.' : 'Proyecto archivado.' : 'No se pudo actualizar el proyecto.') }} onDeleteProject={requestDeleteProject} onCreateTask={() => setTaskForm('new')} />
             <StatsGrid projects={metrics.activeProjects} pending={metrics.pending} active={metrics.inProgress} overdue={metrics.overdue} progress={metrics.progress} total={metrics.total} />
             {!currentProject ? <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center"><h3 className="text-lg font-semibold">Todavía no hay proyectos</h3><p className="mt-2 text-sm text-slate-500">Crea un proyecto para organizar tus tareas.</p><button onClick={() => setProjectForm('new')} className="mt-5 min-h-11 rounded-lg bg-[#192735] px-4 text-sm font-semibold text-white">Crear primer proyecto</button></div> : <>
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
               <KanbanBoard tasks={filteredTasks} people={workspace.people} search={search} onSearch={setSearch} onSelectTask={(task: Task) => setSelectedTaskId(task.id)} onMoveTask={moveBoardTask} />
-              <ProjectSummary project={currentProject} tasksCount={metrics.total} completed={metrics.completed} overdue={metrics.overdue} progress={metrics.progress} today={today} people={workspace.people} activities={workspace.activities.filter((activity) => activity.metadata.projectId === currentProject.id || activity.entityId === currentProject.id || projectTasks.some((task) => task.id === activity.entityId))} />
+              <ProjectSummary project={currentProject} tasksCount={metrics.total} completed={metrics.completed} overdue={metrics.overdue} progress={metrics.progress} today={today} people={workspace.people} activities={workspace.activities.filter((activity) => activity.metadata.projectId === currentProject.id || activity.entityId === currentProject.id || projectTasks.some((task) => task.id === activity.entityId))} onViewAll={() => setActiveView('Actividad')} />
             </div>
             </>}
             <div className="mt-8 flex flex-col gap-3 rounded-xl border border-[#ddd2f3] bg-[#f7f4ff] p-5 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-start gap-3"><div className="grid size-9 shrink-0 place-items-center rounded-lg bg-white text-[#694ba8] shadow-sm"><Sparkles size={17} /></div><div><p className="text-sm font-semibold text-[#4e3e79]">No es otro tablero. Es una operación adaptable.</p><p className="mt-1 text-xs leading-5 text-[#665985]">Explora escenarios para ver cómo Operación Uno modela procesos distintos: aprobaciones, responsables, dependencias y entregas.</p></div></div><button onClick={() => setShowScenario(true)} className="min-h-10 shrink-0 rounded-lg bg-[#694ba8] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#5c4098]">Abrir centro de demo</button></div>
-            </>}
+            </> : <FocusedView view={activeView} workspace={workspace} today={today} onSelectProject={(project) => { setWorkspace((current) => ({ ...current, selectedProjectId: project.id, updatedAt: new Date().toISOString() })); setActiveView('Inicio') }} onOpenTask={(task) => setSelectedTaskId(task.id)} onCreateProject={() => setProjectForm('new')} onCreateTask={() => setTaskForm('new')} onOpenDemo={() => setShowScenario(true)} onRestore={() => setConfirmAction('scenario')} />}
           </div>
         </section>
       </div>
