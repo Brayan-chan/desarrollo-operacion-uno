@@ -1,36 +1,32 @@
-export type Status = 'Pendiente' | 'En progreso' | 'En revisión' | 'Completada'
+export const WORKSPACE_SCHEMA_VERSION = 2 as const
 
-export type ScenarioKey =
-  | 'agencia'
-  | 'despacho'
-  | 'software'
-  | 'construccion'
-  | 'operacion'
+export type ScenarioKey = 'agencia' | 'despacho' | 'software' | 'construccion' | 'operacion'
+export type TaskStatus = 'Pendiente' | 'En progreso' | 'En revisión' | 'Completada'
+export type ProjectStatus = 'Planeación' | 'Activo' | 'En pausa' | 'Completado'
+export type Priority = 'Alta' | 'Media' | 'Baja'
+export type DueState = 'Sin fecha' | 'En tiempo' | 'Vence hoy' | 'Vencida' | 'Completada'
+export type ActivityType = 'workspace.created' | 'task.created' | 'task.status_changed' | 'task.assigned' | 'project.created'
+export type EntityType = 'workspace' | 'project' | 'task' | 'person'
+export type ActivityMetadata = Record<string, string | number | boolean | null>
 
-export type Person = {
+export type Person = { id: string; name: string; role: string; initials: string; color: string; avatarUrl: string | null; active: boolean }
+export type Project = { id: string; name: string; description: string; client: string | null; status: ProjectStatus; startDate: string; dueDate: string; ownerId: string; color: string; progress: number; archived: boolean }
+export type Task = { id: string; projectId: string; title: string; description: string; status: TaskStatus; priority: Priority; assigneeId: string; dueDate: string | null; tag: string; order: number; createdAt: string; updatedAt: string; dueState: DueState }
+export type Activity = { id: string; type: ActivityType; entityType: EntityType; entityId: string; actorId: string; description: string; createdAt: string; metadata: ActivityMetadata }
+export type TourState = { completed: boolean; dismissed: boolean; lastStep?: number }
+
+export type Workspace = {
   id: string
-  name: string
-  role: string
-  initials: string
-  color: string
-}
-
-export type Task = {
-  id: string
-  title: string
-  project: string
-  assignee: string
-  status: Status
-  priority: 'Alta' | 'Media' | 'Baja'
-  due: string
-  tag: string
-  description: string
-}
-
-export type Scenario = {
-  label: string
-  description: string
-  projects: string[]
-  people: Person[]
+  version: typeof WORKSPACE_SCHEMA_VERSION
+  activeScenario: ScenarioKey
+  createdAt: string
+  updatedAt: string
+  projects: Project[]
   tasks: Task[]
+  people: Person[]
+  activities: Activity[]
+  tour: TourState
 }
+
+export type Scenario = { label: string; description: string; workspace: Workspace }
+export type Status = TaskStatus
