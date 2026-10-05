@@ -1,19 +1,17 @@
+'use client'
+
+import { useState } from 'react'
 import { Bell, ChevronDown, Menu, Sparkles } from 'lucide-react'
-import type { Person } from '@/types/demo'
+import type { Person, Task } from '@/types/demo'
 import { Avatar } from './avatar'
 
-export function DashboardHeader({ activeView, scenarioLabel, person, onOpenDemo }: { activeView: string; scenarioLabel: string; person: Person; onOpenDemo: () => void }) {
-  return (
-    <header className="flex h-[76px] items-center justify-between border-b border-slate-200 bg-[#fbfcfd] px-5 sm:px-8">
-      <div className="flex items-center gap-3">
-        <button className="grid size-9 place-items-center rounded-lg border border-slate-200 lg:hidden" aria-label="Abrir menú"><Menu size={18} /></button>
-        <div><p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Operación Uno</p><h1 className="text-lg font-semibold tracking-tight">{activeView}</h1></div>
-      </div>
-      <div className="flex items-center gap-3">
-        <button data-tour="scenario-selector" className="hidden items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 sm:flex" onClick={onOpenDemo}><Sparkles size={14} className="text-[#866bc1]" />{scenarioLabel}<ChevronDown size={14} /></button>
-        <button className="grid size-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-100" aria-label="Notificaciones"><Bell size={18} /></button>
-        <span aria-label={`Perfil de ${person.name}`}><Avatar person={person} /></span>
-      </div>
-    </header>
-  )
+export function DashboardHeader({ activeView, scenarioLabel, person, tasks, onOpenDemo, onOpenMenu, onOpenTask, onNavigate }: { activeView: string; scenarioLabel: string; person?: Person; tasks: Task[]; onOpenDemo: () => void; onOpenMenu: () => void; onOpenTask: (task: Task) => void; onNavigate: (view: string) => void }) {
+  const [open, setOpen] = useState<'notifications' | 'profile' | null>(null)
+  const alerts = tasks.filter((task) => task.dueState === 'Vencida' || task.dueState === 'Vence hoy' || task.status === 'En revisión').slice(0, 5)
+  return <header className="relative flex h-[76px] items-center justify-between border-b border-slate-200 bg-[#fbfcfd] px-5 sm:px-8">
+    <div className="flex items-center gap-3"><button onClick={onOpenMenu} className="grid size-9 place-items-center rounded-lg border border-slate-200 lg:hidden" aria-label="Abrir menú"><Menu size={18} /></button><div><p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Operación Uno</p><h1 className="text-lg font-semibold tracking-tight">{activeView}</h1></div></div>
+    <div className="flex items-center gap-3"><button data-tour="scenario-selector" className="hidden items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 sm:flex" onClick={onOpenDemo}><Sparkles size={14} className="text-[#866bc1]" />{scenarioLabel}<ChevronDown size={14} /></button><button onClick={() => setOpen(open === 'notifications' ? null : 'notifications')} aria-expanded={open === 'notifications'} aria-label={`Notificaciones: ${alerts.length} pendientes`} className="relative grid size-9 place-items-center rounded-lg text-slate-600 hover:bg-slate-100"><Bell size={18} />{alerts.length > 0 && <span className="absolute right-0 top-0 size-2 rounded-full bg-red-500" />}</button><button onClick={() => setOpen(open === 'profile' ? null : 'profile')} aria-expanded={open === 'profile'} aria-label={`Perfil de ${person?.name ?? 'usuario demo'}`} className="rounded-full focus-visible:outline-2 focus-visible:outline-[#694ba8]"><Avatar person={person} /></button></div>
+    {open === 'notifications' && <div role="region" aria-label="Notificaciones" className="absolute right-5 top-[68px] z-30 w-[min(360px,calc(100vw-40px))] rounded-xl border border-slate-200 bg-white p-4 shadow-xl"><div className="mb-3 flex items-center justify-between"><h2 className="text-sm font-semibold">Necesita atención</h2><button onClick={() => setOpen(null)} className="text-xs text-[#694ba8]">Cerrar</button></div>{alerts.length ? <ul className="space-y-1">{alerts.map((task) => <li key={task.id}><button onClick={() => { onOpenTask(task); setOpen(null) }} className="w-full rounded-lg p-2 text-left hover:bg-slate-50"><span className="block text-xs font-semibold">{task.title}</span><span className="text-[11px] text-slate-500">{task.dueState === 'Vencida' || task.dueState === 'Vence hoy' ? task.dueState : 'En revisión'}</span></button></li>)}</ul> : <p className="text-xs text-slate-500">No hay tareas vencidas, para hoy ni en revisión.</p>}</div>}
+    {open === 'profile' && <div role="region" aria-label="Perfil" className="absolute right-5 top-[68px] z-30 w-64 rounded-xl border border-slate-200 bg-white p-4 shadow-xl"><p className="text-sm font-semibold">{person?.name ?? 'Usuario demo'}</p><p className="mt-1 text-xs text-slate-500">{person?.role ?? 'Perfil de demostración'}</p><p className="mt-3 text-xs text-slate-500">Los cambios se guardan solo en este navegador.</p><button onClick={() => { onNavigate('Configuración'); setOpen(null) }} className="mt-4 w-full rounded-lg border border-slate-200 px-3 py-2 text-left text-xs font-medium">Abrir configuración</button></div>}
+  </header>
 }
