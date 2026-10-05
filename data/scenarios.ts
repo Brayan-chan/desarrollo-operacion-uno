@@ -28,6 +28,7 @@ function createWorkspace(scenario: ScenarioKey, projectName: string, client: str
     id: `workspace-${scenario}`,
     version: WORKSPACE_SCHEMA_VERSION,
     activeScenario: scenario,
+    selectedProjectId: projectId,
     createdAt: CREATED_AT,
     updatedAt: UPDATED_AT,
     people: people.map((person) => ({ ...person })),

@@ -20,7 +20,7 @@ const taskStatuses = ['Pendiente', 'En progreso', 'En revisión', 'Completada']
 const priorities = ['Alta', 'Media', 'Baja']
 const projectStatuses = ['Planeación', 'Activo', 'En pausa', 'Completado']
 const dueStates = ['Sin fecha', 'En tiempo', 'Vence hoy', 'Vencida', 'Completada']
-const activityTypes = ['workspace.created', 'task.created', 'task.status_changed', 'task.assigned', 'project.created']
+const activityTypes = ['workspace.created', 'task.created', 'task.updated', 'task.status_changed', 'task.assigned', 'task.duplicated', 'task.deleted', 'project.created', 'project.updated', 'project.archived', 'project.unarchived', 'project.deleted']
 const entityTypes = ['workspace', 'project', 'task', 'person']
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object'
@@ -53,7 +53,7 @@ function isTourState(value: unknown): value is TourState {
 
 export function isWorkspace(value: unknown): value is Workspace {
   if (!isRecord(value)) return false
-  return typeof value.id === 'string' && value.version === WORKSPACE_SCHEMA_VERSION && scenarioKeys.includes(value.activeScenario as ScenarioKey) && typeof value.createdAt === 'string' && typeof value.updatedAt === 'string' && Array.isArray(value.projects) && value.projects.every(isProject) && Array.isArray(value.tasks) && value.tasks.every(isTask) && Array.isArray(value.people) && value.people.every(isPerson) && Array.isArray(value.activities) && value.activities.every(isActivity) && isTourState(value.tour)
+  return typeof value.id === 'string' && value.version === WORKSPACE_SCHEMA_VERSION && scenarioKeys.includes(value.activeScenario as ScenarioKey) && (value.selectedProjectId === undefined || isStringOrNull(value.selectedProjectId)) && typeof value.createdAt === 'string' && typeof value.updatedAt === 'string' && Array.isArray(value.projects) && value.projects.every(isProject) && Array.isArray(value.tasks) && value.tasks.every(isTask) && Array.isArray(value.people) && value.people.every(isPerson) && Array.isArray(value.activities) && value.activities.every(isActivity) && isTourState(value.tour)
 }
 
 type LegacyTask = { id: string; title: string; project: string; assignee: string; status: Task['status']; priority: Task['priority']; due: string; tag: string; description: string }
@@ -107,7 +107,7 @@ export function parseStoredWorkspace(raw: string | null, fallback: Workspace): W
 export function loadWorkspace(storage: StorageReader, scenario: ScenarioKey, fallback: Workspace): StorageResult<WorkspaceLoad> {
   try {
     const raw = storage.getItem(storageKey(scenario))
-    if (raw === null) return { ok: true, value: { workspace: fallback, source: 'default' } }
+    if (raw === null) return { ok: true, value: { workspace: refreshWorkspace(fallback), source: 'default' } }
     const parsed = deserializeWorkspace(raw, fallback)
     if (!parsed.ok) return parsed
     return { ok: true, value: { workspace: parsed.value.workspace, source: parsed.value.migrated ? 'migrated' : 'stored' } }

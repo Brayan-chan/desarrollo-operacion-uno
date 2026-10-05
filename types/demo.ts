@@ -5,7 +5,7 @@ export type TaskStatus = 'Pendiente' | 'En progreso' | 'En revisión' | 'Complet
 export type ProjectStatus = 'Planeación' | 'Activo' | 'En pausa' | 'Completado'
 export type Priority = 'Alta' | 'Media' | 'Baja'
 export type DueState = 'Sin fecha' | 'En tiempo' | 'Vence hoy' | 'Vencida' | 'Completada'
-export type ActivityType = 'workspace.created' | 'task.created' | 'task.status_changed' | 'task.assigned' | 'project.created'
+export type ActivityType = 'workspace.created' | 'task.created' | 'task.updated' | 'task.status_changed' | 'task.assigned' | 'task.duplicated' | 'task.deleted' | 'project.created' | 'project.updated' | 'project.archived' | 'project.unarchived' | 'project.deleted'
 export type EntityType = 'workspace' | 'project' | 'task' | 'person'
 export type ActivityMetadata = Record<string, string | number | boolean | null>
 
@@ -19,6 +19,7 @@ export type Workspace = {
   id: string
   version: typeof WORKSPACE_SCHEMA_VERSION
   activeScenario: ScenarioKey
+  selectedProjectId?: string | null
   createdAt: string
   updatedAt: string
   projects: Project[]
