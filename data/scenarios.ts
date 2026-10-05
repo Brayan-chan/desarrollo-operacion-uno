@@ -27,7 +27,7 @@ function createWorkspace(scenario: ScenarioKey, projectName: string, client: str
   const workspace: Workspace = {
     id: `workspace-${scenario}`,
     version: WORKSPACE_SCHEMA_VERSION,
-    selectedScenario: scenario,
+    activeScenario: scenario,
     createdAt: CREATED_AT,
     updatedAt: UPDATED_AT,
     people: people.map((person) => ({ ...person })),
@@ -41,6 +41,7 @@ function createWorkspace(scenario: ScenarioKey, projectName: string, client: str
       { id: `${scenario}-activity-2`, type: 'task.status_changed', entityType: 'task', entityId: 't3', actorId: 'carlos', description: `movió ${titles[2]} a revisión`, createdAt: '2026-10-04T10:00:00.000Z', metadata: { previousStatus: 'En progreso', nextStatus: 'En revisión' } },
       { id: `${scenario}-activity-3`, type: 'task.assigned', entityType: 'task', entityId: 't6', actorId: 'lucia', description: `fue asignada a ${titles[5]}`, createdAt: '2026-10-03T16:00:00.000Z', metadata: { assigneeId: 'lucia' } },
     ],
+    tour: { completed: false, dismissed: false },
   }
   return refreshWorkspace(workspace, '2026-10-04')
 }
