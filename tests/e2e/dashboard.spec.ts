@@ -1,7 +1,13 @@
 import { expect, test } from '@playwright/test'
 
+async function dismissInitialTour(page: import('@playwright/test').Page) {
+  await page.locator('.driver-popover').waitFor({ state: 'visible' })
+  await page.locator('.driver-popover-close-btn').click()
+}
+
 test('loads the dashboard and changes a task status', async ({ page }) => {
   await page.goto('/')
+  await dismissInitialTour(page)
   await expect(page.getByRole('heading', { name: 'Vista general' })).toBeVisible()
   await expect(page.getByText('Cargando tu espacio de trabajo…')).toBeHidden()
   await page.getByRole('button', { name: /Mapa de contenidos/ }).click()
@@ -18,6 +24,7 @@ test('loads the dashboard and changes a task status', async ({ page }) => {
 
 test('confirms local deletion and can undo it', async ({ page }) => {
   await page.goto('/')
+  await dismissInitialTour(page)
   await page.getByRole('button', { name: /Mapa de contenidos/ }).click()
   await page.getByLabel('Estado').selectOption('Completada')
   await page.getByRole('button', { name: 'Cerrar tarea' }).click()
@@ -34,6 +41,7 @@ test('confirms local deletion and can undo it', async ({ page }) => {
 
 test('creates a project and task, then keeps them after reload', async ({ page }) => {
   await page.goto('/')
+  await dismissInitialTour(page)
   await page.getByRole('button', { name: 'Nuevo proyecto' }).click()
   const projectDialog = page.getByRole('dialog', { name: 'Nuevo proyecto' })
   await projectDialog.getByRole('button', { name: 'Crear proyecto' }).click()
@@ -55,6 +63,7 @@ test('creates a project and task, then keeps them after reload', async ({ page }
 
 test('moves a task with keyboard, persists it and undoes the move', async ({ page }) => {
   await page.goto('/')
+  await dismissInitialTour(page)
   const card = page.getByRole('button', { name: /Mapa de contenidos/ })
   await card.focus()
   await page.keyboard.press('Space')
@@ -74,6 +83,7 @@ test('moves a task with keyboard, persists it and undoes the move', async ({ pag
 
 test('opens focused views and actionable header controls', async ({ page }) => {
   await page.goto('/')
+  await dismissInitialTour(page)
   await page.getByRole('button', { name: 'Reportes' }).click()
   await expect(page.getByRole('heading', { name: 'Reportes', level: 2 })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Reportes' })).toBeVisible()
@@ -88,6 +98,7 @@ test('opens focused views and actionable header controls', async ({ page }) => {
 test('opens the mobile menu and filters tasks', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
+  await dismissInitialTour(page)
   await page.getByRole('button', { name: 'Abrir menú' }).click()
   await page.getByRole('button', { name: 'Equipo' }).click()
   await expect(page.getByRole('heading', { name: 'Equipo', level: 2 })).toBeVisible()
@@ -96,4 +107,72 @@ test('opens the mobile menu and filters tasks', async ({ page }) => {
   await page.getByRole('button', { name: 'Filtrar tareas' }).click()
   await page.getByRole('combobox', { name: 'Prioridad' }).selectOption('Alta')
   await expect(page.getByText('Limpia los filtros para mover tareas.')).toBeVisible()
+})
+
+test('completes the guided tour and remembers completion', async ({ page }) => {
+  await page.goto('/')
+  const popover = page.locator('.driver-popover')
+  await expect(popover.getByText('Bienvenido a Operación Uno')).toBeVisible()
+  for (let step = 1; step <= 5; step += 1) await popover.getByRole('button', { name: 'Siguiente' }).click()
+  await expect(popover.getByText('Abre una tarea')).toBeVisible()
+  await popover.getByRole('button', { name: 'Siguiente' }).click()
+  await expect(page.getByRole('dialog', { name: /Mapa de contenidos/ })).toBeVisible()
+  await expect(popover.getByText('Edita el trabajo')).toBeVisible()
+  await popover.getByRole('button', { name: 'Siguiente' }).click()
+  await expect(popover.getByText('Cambia su estado')).toBeVisible()
+  await popover.getByRole('button', { name: 'Siguiente' }).click()
+  await expect(popover.getByText('Progreso actualizado')).toBeVisible()
+  await popover.getByRole('button', { name: 'Siguiente' }).click()
+  await expect(popover.getByText('Guardado local')).toBeVisible()
+  await popover.getByRole('button', { name: 'Siguiente' }).click()
+  await expect(popover.getByText('Ahora te toca explorar')).toBeVisible()
+  await popover.getByRole('button', { name: 'Terminar' }).click()
+  await expect(popover).toBeHidden()
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Ver recorrido' })).toBeVisible()
+  await expect(popover).toBeHidden()
+})
+
+test('pauses the tour for scenario selection and task editing', async ({ page }) => {
+  await page.goto('/')
+  const popover = page.locator('.driver-popover')
+  await popover.getByRole('button', { name: 'Siguiente' }).click()
+  await page.locator('[data-tour="scenario-selector"]').click()
+  await expect(page.getByRole('dialog', { name: 'Modela una operación distinta' })).toBeVisible()
+  await page.getByRole('button', { name: /Desarrollo de software/ }).click()
+  await expect(popover.getByText('Métricas reales')).toBeVisible()
+  await popover.getByRole('button', { name: 'Siguiente' }).click()
+  await popover.getByRole('button', { name: 'Siguiente' }).click()
+  await popover.getByRole('button', { name: 'Siguiente' }).click()
+  await expect(popover.getByText('Abre una tarea')).toBeVisible()
+  await page.locator('[data-tour="sample-task"]').click()
+  await expect(popover.getByText('Edita el trabajo')).toBeVisible()
+  await page.getByRole('dialog', { name: /Diseñar experiencia UX\/UI/ }).getByRole('button', { name: 'Editar' }).click()
+  const form = page.getByRole('dialog', { name: 'Editar tarea' })
+  await form.getByLabel('Responsable').selectOption('ana')
+  await form.getByRole('button', { name: 'Guardar cambios' }).click()
+  await expect(popover.getByText('Cambia su estado')).toBeVisible()
+  await page.getByRole('dialog', { name: /Diseñar experiencia UX\/UI/ }).getByLabel('Estado').selectOption('Completada')
+  await expect(popover.getByText('Progreso actualizado')).toBeVisible()
+})
+
+test('remembers dismissal and can restart from the demo center', async ({ page }) => {
+  await page.goto('/')
+  await dismissInitialTour(page)
+  await page.reload()
+  await expect(page.locator('.driver-popover')).toBeHidden()
+  await page.getByRole('button', { name: 'Agencia' }).click()
+  await page.getByRole('button', { name: 'Reiniciar recorrido' }).click()
+  await expect(page.locator('.driver-popover').getByText('Bienvenido a Operación Uno')).toBeVisible()
+})
+
+test('shows the scenario step on a mobile viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+  const popover = page.locator('.driver-popover')
+  await expect(popover).toHaveCount(1)
+  await popover.getByRole('button', { name: 'Siguiente' }).click()
+  await expect(page.locator('[data-tour="scenario-selector"]')).toBeVisible()
+  await page.locator('[data-tour="scenario-selector"]').click()
+  await expect(page.getByRole('dialog', { name: 'Modela una operación distinta' })).toBeVisible()
 })
