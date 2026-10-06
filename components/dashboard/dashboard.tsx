@@ -76,11 +76,13 @@ export function Dashboard() {
     prepare: () => { setActiveView('Inicio'); setSearch(''); setShowScenario(false); setSelectedTaskId(null); setTaskForm(null) },
     openSampleTask: () => { if (sampleTask) { setSelectedTaskId(sampleTask.id); setTimeout(() => tour.resume(), 0) } else tour.resume() },
     closeSampleTask: () => setSelectedTaskId(null),
+    prepareProjectTour: () => { setActiveView('Inicio'); setSearch(''); setShowScenario(false); setSelectedTaskId(null); setTaskForm(null); setProjectForm('new') },
   })
 
   const openScenario = () => { if (tour.isActive() && tour.activeIndex() === 1) tour.pause(2); setShowScenario(true) }
   const closeScenario = () => { setShowScenario(false); tour.resume() }
   const openTask = (task: Task) => { if (tour.isActive() && tour.activeIndex() === 5) { tour.pause(6); setSelectedTaskId(task.id); setTimeout(() => tour.resume(), 0) } else setSelectedTaskId(task.id) }
+  const openNewTask = () => { if (tour.isProjectActive()) tour.finishProject(); setTaskForm('new') }
 
   const updateStatus = (id: string, status: Status) => {
     const result = setWorkspace((current) => changeTaskStatus(current, id, status))
@@ -98,7 +100,7 @@ export function Dashboard() {
   const saveProject = (input: ProjectInput) => {
     const result = setWorkspace((current) => projectForm === 'new' ? createProject(current, input) : projectForm ? updateProject(current, projectForm.id, input) : current)
     setNotice(result?.ok ? 'Proyecto guardado en este navegador.' : 'No se pudo guardar el proyecto.')
-    setProjectForm(null)
+    if (result?.ok) { setProjectForm(null); if (projectForm === 'new') tour.projectSaved() }
   }
 
   const saveTask = (input: TaskInput) => {
@@ -178,10 +180,11 @@ export function Dashboard() {
           <DashboardHeader activeView={activeView} scenarioLabel={scenario.label} person={workspace.people[0]} tasks={workspace.tasks.map((task) => ({ ...task, dueState: calculateDueState(task, today) }))} onOpenDemo={openScenario} onOpenMenu={() => setMobileMenuOpen(true)} onOpenTask={(task) => { setActiveView('Tareas'); openTask(task) }} onNavigate={setActiveView} onStartTour={() => tour.restart()} />
           <div className="mx-auto max-w-[1500px] px-5 py-7 sm:px-8 lg:px-10">
             <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="mb-2 text-sm capitalize text-slate-500">{displayDate}</p><h2 className="text-3xl font-semibold tracking-[-0.04em] text-[#192735]">{activeView === 'Inicio' ? 'Vista general' : activeView}</h2><p className="mt-2 max-w-xl text-sm text-slate-500">{activeView === 'Inicio' ? 'Una lectura rápida de lo que está pasando y de lo que necesita atención.' : 'Información de este escenario, guardada en tu navegador.'}</p></div>{activeView === 'Inicio' && <button data-tour="new-project" onClick={() => setProjectForm('new')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#192735] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-[#263a4b]"><Plus size={16} />Nuevo proyecto</button>}</div>
+            {activeView === 'Inicio' && <button onClick={() => tour.startProject()} className="mb-5 text-sm font-semibold text-[#694ba8] underline-offset-4 hover:underline">Crear proyecto con guía</button>}
             <div data-tour="persistence" className="mb-4 flex items-center justify-between gap-3 text-xs text-slate-500"><span aria-live="polite">{isHydrating ? 'Cargando datos locales…' : saveState === 'error' ? 'Cambios sin guardar' : 'Guardado en este navegador'}</span>{notice && <span role="status">{notice} {undoSnapshot && <button onClick={undo} className="ml-2 font-semibold text-[#694ba8] underline">Deshacer</button>}</span>}</div>
             {storageError && <StorageAlert message={storageError.message} onDismiss={clearStorageError} onRestore={() => setConfirmAction('scenario')} />}
             {isHydrating ? <div className="grid min-h-[320px] place-items-center rounded-xl bg-white text-sm text-slate-500">Cargando espacio de trabajo…</div> : activeView === 'Inicio' ? <>
-            <ProjectToolbar projects={workspace.projects} selectedId={currentProject?.id ?? null} onSelect={(id) => { setWorkspace((current) => ({ ...current, selectedProjectId: id, updatedAt: new Date().toISOString() })); setSearch(''); setSelectedTaskId(null) }} onCreateProject={() => setProjectForm('new')} onEditProject={setProjectForm} onArchiveProject={(project) => { const result = setWorkspace((current) => setProjectArchived(current, project.id, !project.archived)); setNotice(result?.ok ? project.archived ? 'Proyecto reactivado.' : 'Proyecto archivado.' : 'No se pudo actualizar el proyecto.') }} onDeleteProject={requestDeleteProject} onCreateTask={() => setTaskForm('new')} />
+            <ProjectToolbar projects={workspace.projects} selectedId={currentProject?.id ?? null} onSelect={(id) => { setWorkspace((current) => ({ ...current, selectedProjectId: id, updatedAt: new Date().toISOString() })); setSearch(''); setSelectedTaskId(null) }} onCreateProject={() => setProjectForm('new')} onEditProject={setProjectForm} onArchiveProject={(project) => { const result = setWorkspace((current) => setProjectArchived(current, project.id, !project.archived)); setNotice(result?.ok ? project.archived ? 'Proyecto reactivado.' : 'Proyecto archivado.' : 'No se pudo actualizar el proyecto.') }} onDeleteProject={requestDeleteProject} onCreateTask={openNewTask} />
             <StatsGrid projects={metrics.activeProjects} pending={metrics.pending} active={metrics.inProgress} overdue={metrics.overdue} progress={metrics.progress} total={metrics.total} />
             {!currentProject ? <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center"><h3 className="text-lg font-semibold">Todavía no hay proyectos</h3><p className="mt-2 text-sm text-slate-500">Crea un proyecto para organizar tus tareas.</p><button onClick={() => setProjectForm('new')} className="mt-5 min-h-11 rounded-lg bg-[#192735] px-4 text-sm font-semibold text-white">Crear primer proyecto</button></div> : <>
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -194,11 +197,11 @@ export function Dashboard() {
           </div>
         </section>
       </div>
-      {showScenario && <ScenarioDialog current={scenarioKey} onSelect={selectScenario} onClose={closeScenario} onRestore={() => setConfirmAction('scenario')} onRestoreAll={() => setConfirmAction('all')} onClearAll={() => setConfirmAction('clear')} onRestartTour={() => { setShowScenario(false); tour.restart() }} />}
+      {showScenario && <ScenarioDialog current={scenarioKey} onSelect={selectScenario} onClose={closeScenario} onRestore={() => setConfirmAction('scenario')} onRestoreAll={() => setConfirmAction('all')} onClearAll={() => setConfirmAction('clear')} onRestartTour={() => { setShowScenario(false); tour.restart() }} onStartProjectTour={() => tour.startProject()} />}
       {confirmAction && <ConfirmDialog title={confirmAction === 'scenario' ? '¿Restaurar este escenario?' : confirmAction === 'all' ? '¿Restaurar toda la demo?' : '¿Borrar los datos locales?'} description={confirmAction === 'scenario' ? 'Se reemplazarán los cambios de este escenario por sus datos iniciales.' : confirmAction === 'all' ? 'Todos los escenarios volverán a sus datos iniciales.' : 'Se eliminarán los datos de Operación Uno guardados en este navegador.'} confirmLabel={confirmAction === 'clear' ? 'Borrar datos' : 'Restaurar'} onConfirm={performDestructiveAction} onCancel={() => setConfirmAction(null)} />}
       {deleteTarget && <ConfirmDialog title={deleteTarget.kind === 'project' ? '¿Eliminar proyecto?' : '¿Eliminar tarea?'} description="Esta acción elimina el elemento de la demo local. Podrás deshacerla inmediatamente." confirmLabel="Eliminar" onConfirm={confirmDelete} onCancel={() => setDeleteTarget(null)} />}
       {selectedTask && !taskForm && <TaskDrawer task={selectedTask} project={workspace.projects.find((project) => project.id === selectedTask.projectId)} people={workspace.people} activities={workspace.activities.filter((activity) => activity.entityType === 'task' && activity.entityId === selectedTask.id)} onClose={() => setSelectedTaskId(null)} onChangeStatus={(status) => { updateStatus(selectedTask.id, status); if (tour.isActive() && tour.activeIndex() === 7) { setSelectedTaskId(null); setTimeout(() => tour.moveTo(8), 80) } }} onEdit={() => { if (tour.isActive() && tour.activeIndex() === 6) tour.pause(7); setTaskForm(selectedTask) }} onDuplicate={() => duplicateSelectedTask(selectedTask)} onDelete={() => setDeleteTarget({ kind: 'task', id: selectedTask.id })} />}
-      {projectForm && <ProjectForm key={projectForm === 'new' ? 'new' : projectForm.id} project={projectForm === 'new' ? undefined : projectForm} workspace={workspace} onSave={saveProject} onCancel={() => setProjectForm(null)} />}
+      {projectForm && <ProjectForm key={projectForm === 'new' ? 'new' : projectForm.id} project={projectForm === 'new' ? undefined : projectForm} workspace={workspace} onSave={saveProject} onCancel={() => { if (tour.isProjectActive()) tour.finishProject(); setProjectForm(null) }} />}
       {taskForm && currentProject && <TaskForm key={taskForm === 'new' ? 'new' : taskForm.id} task={taskForm === 'new' ? undefined : taskForm} projectId={currentProject.id} workspace={workspace} onSave={(input) => { saveTask(input); tour.resume() }} onCancel={() => { setTaskForm(null); tour.resume() }} />}
     </main>
   )
