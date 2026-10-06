@@ -29,7 +29,7 @@ export function useDemoWorkspace(scenarioKey: ScenarioKey, initialWorkspace: Wor
     if (!loaded || loaded.key !== scenarioKey) return null
     const next = typeof action === 'function' ? action(loaded.workspace) : action
     const saved = saveWorkspace(window.localStorage, next)
-    setLoaded({ key: scenarioKey, workspace: next })
+    if (saved.ok) setLoaded({ key: scenarioKey, workspace: next })
     setStorageError(saved.ok ? null : saved)
     setSaveState(saved.ok ? 'saved' : 'error')
     return saved
