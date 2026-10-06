@@ -110,6 +110,8 @@
 .operacion-uno-tour .driver-popover-next-btn { background: #694ba8; color: #fff; border-color: #694ba8; }
 .operacion-uno-tour .driver-popover-next-btn:hover { background: #5c4098; color: #fff; }
 .operacion-uno-tour .driver-popover-close-btn { color: #526173; }
+.operacion-uno-tour .operacion-uno-tour-skip { border: 0; background: transparent; color: #694ba8; text-decoration: underline; }
+.operacion-uno-tour .driver-popover-description[role="status"] { color: #694ba8; }
 body.driver-active [data-tour="scenario-selector"] { display: flex; }
 @media (max-width: 639px) {
   body.driver-active header [data-tour="scenario-selector"] { width: 38px; height: 38px; overflow: hidden; padding: 10px; }

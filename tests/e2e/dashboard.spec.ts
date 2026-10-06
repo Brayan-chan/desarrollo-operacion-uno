@@ -217,6 +217,7 @@ test('guides project creation without skipping required fields', async ({ page }
 })
 
 test('guides task creation, state changes and live metrics', async ({ page }) => {
+  page.on('console', (message) => console.log('BROWSER', message.text()))
   await page.goto('/')
   await dismissInitialTour(page)
   await page.getByRole('button', { name: 'Crear tarea con guía' }).click()
