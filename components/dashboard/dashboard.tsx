@@ -2,7 +2,7 @@
 
 /* eslint-disable react-hooks/set-state-in-effect -- The selected scenario is restored from browser storage after hydration. */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Sparkles } from 'lucide-react'
 import { scenarios } from '@/data/scenarios'
 import { useDemoWorkspace } from '@/hooks/use-demo-workspace'
@@ -41,6 +41,7 @@ export function Dashboard() {
   const [guidedTaskForm, setGuidedTaskForm] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{ kind: 'project' | 'task'; id: string } | null>(null)
   const [today, setToday] = useState(() => getLocalDate())
+  const tourInterfaceRef = useRef<{ activeView: string; search: string; showScenario: boolean; selectedTaskId: string | null; projectForm: Project | 'new' | null; taskForm: Task | 'new' | null } | null>(null)
   const scenario = scenarios[scenarioKey]
   const { workspace, setWorkspace, storageError, saveState, isHydrating, clearStorageError, restore } = useDemoWorkspace(scenarioKey, scenario.workspace, resetKey)
 
@@ -75,11 +76,14 @@ export function Dashboard() {
     isHydrating,
     saveTour: (next) => { setWorkspace((current) => ({ ...current, tour: next, updatedAt: new Date().toISOString() })) },
     prepare: () => { setActiveView('Inicio'); setSearch(''); setShowScenario(false); setSelectedTaskId(null); setTaskForm(null) },
-    openSampleTask: () => { if (sampleTask) { setSelectedTaskId(sampleTask.id); setTimeout(() => tour.resume(), 0) } else tour.resume() },
+    openScenario: () => openScenario(),
     closeSampleTask: () => setSelectedTaskId(null),
     prepareProjectTour: () => { setActiveView('Inicio'); setSearch(''); setShowScenario(false); setSelectedTaskId(null); setTaskForm(null); setProjectForm('new') },
     prepareTaskTour: () => { setActiveView('Inicio'); setSearch(''); setShowScenario(false); setProjectForm(null); setSelectedTaskId(null); setGuidedTaskForm(true); setTaskForm('new') },
     onTaskTourEnd: () => setGuidedTaskForm(false),
+    captureInterface: () => { tourInterfaceRef.current = { activeView, search, showScenario, selectedTaskId, projectForm, taskForm } },
+    restoreInterface: () => { const saved = tourInterfaceRef.current; if (!saved) return; setActiveView(saved.activeView); setSearch(saved.search); setShowScenario(saved.showScenario); setSelectedTaskId(saved.selectedTaskId); setProjectForm(saved.projectForm); setTaskForm(saved.taskForm); tourInterfaceRef.current = null },
+    onTourIssue: (message) => setNotice(message),
   })
 
   const openScenario = () => { if (tour.isActive() && tour.activeIndex() === 1) tour.pause(2); setShowScenario(true) }
@@ -196,7 +200,7 @@ export function Dashboard() {
             <div data-tour="persistence" className="mb-4 flex items-center justify-between gap-3 text-xs text-slate-500"><span aria-live="polite">{isHydrating ? 'Cargando datos locales…' : saveState === 'error' ? 'Cambios sin guardar' : 'Guardado en este navegador'}</span>{notice && <span role="status">{notice} {undoSnapshot && <button onClick={undo} className="ml-2 font-semibold text-[#694ba8] underline">Deshacer</button>}</span>}</div>
             {storageError && <StorageAlert message={storageError.message} onDismiss={clearStorageError} onRestore={() => setConfirmAction('scenario')} />}
             {isHydrating ? <div className="grid min-h-[320px] place-items-center rounded-xl bg-white text-sm text-slate-500">Cargando espacio de trabajo…</div> : activeView === 'Inicio' ? <>
-            <ProjectToolbar projects={workspace.projects} selectedId={currentProject?.id ?? null} onSelect={(id) => { setWorkspace((current) => ({ ...current, selectedProjectId: id, updatedAt: new Date().toISOString() })); setSearch(''); setSelectedTaskId(null) }} onCreateProject={() => setProjectForm('new')} onEditProject={setProjectForm} onArchiveProject={(project) => { const result = setWorkspace((current) => setProjectArchived(current, project.id, !project.archived)); setNotice(result?.ok ? project.archived ? 'Proyecto reactivado.' : 'Proyecto archivado.' : 'No se pudo actualizar el proyecto.') }} onDeleteProject={requestDeleteProject} onCreateTask={openNewTask} />
+            <ProjectToolbar projects={workspace.projects} selectedId={currentProject?.id ?? null} onSelect={(id) => { const changed = id !== currentProject?.id; setWorkspace((current) => ({ ...current, selectedProjectId: id, updatedAt: new Date().toISOString() })); setSearch(''); setSelectedTaskId(null); if (changed) setTimeout(() => tour.projectSelected(workspace.tasks.some((task) => task.projectId === id)), 100) }} onCreateProject={() => setProjectForm('new')} onEditProject={setProjectForm} onArchiveProject={(project) => { const result = setWorkspace((current) => setProjectArchived(current, project.id, !project.archived)); setNotice(result?.ok ? project.archived ? 'Proyecto reactivado.' : 'Proyecto archivado.' : 'No se pudo actualizar el proyecto.') }} onDeleteProject={requestDeleteProject} onCreateTask={openNewTask} />
             <StatsGrid projects={metrics.activeProjects} pending={metrics.pending} active={metrics.inProgress} overdue={metrics.overdue} progress={metrics.progress} total={metrics.total} />
             {!currentProject ? <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center"><h3 className="text-lg font-semibold">Todavía no hay proyectos</h3><p className="mt-2 text-sm text-slate-500">Crea un proyecto para organizar tus tareas.</p><button onClick={() => setProjectForm('new')} className="mt-5 min-h-11 rounded-lg bg-[#192735] px-4 text-sm font-semibold text-white">Crear primer proyecto</button></div> : <>
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -212,9 +216,9 @@ export function Dashboard() {
       {showScenario && <ScenarioDialog current={scenarioKey} onSelect={selectScenario} onClose={closeScenario} onRestore={() => setConfirmAction('scenario')} onRestoreAll={() => setConfirmAction('all')} onClearAll={() => setConfirmAction('clear')} onRestartTour={() => { setShowScenario(false); tour.restart() }} onStartProjectTour={() => tour.startProject()} onStartTaskTour={() => tour.startTask()} canStartTask={Boolean(currentProject && !currentProject.archived)} />}
       {confirmAction && <ConfirmDialog title={confirmAction === 'scenario' ? '¿Restaurar este escenario?' : confirmAction === 'all' ? '¿Restaurar toda la demo?' : '¿Borrar los datos locales?'} description={confirmAction === 'scenario' ? 'Se reemplazarán los cambios de este escenario por sus datos iniciales.' : confirmAction === 'all' ? 'Todos los escenarios volverán a sus datos iniciales.' : 'Se eliminarán los datos de Operación Uno guardados en este navegador.'} confirmLabel={confirmAction === 'clear' ? 'Borrar datos' : 'Restaurar'} onConfirm={performDestructiveAction} onCancel={() => setConfirmAction(null)} />}
       {deleteTarget && <ConfirmDialog title={deleteTarget.kind === 'project' ? '¿Eliminar proyecto?' : '¿Eliminar tarea?'} description="Esta acción elimina el elemento de la demo local. Podrás deshacerla inmediatamente." confirmLabel="Eliminar" onConfirm={confirmDelete} onCancel={() => setDeleteTarget(null)} />}
-      {selectedTask && !taskForm && <TaskDrawer task={selectedTask} project={workspace.projects.find((project) => project.id === selectedTask.projectId)} people={workspace.people} activities={workspace.activities.filter((activity) => activity.entityType === 'task' && activity.entityId === selectedTask.id)} onClose={() => { if (tour.isTaskActive()) tour.finishTask(); setSelectedTaskId(null) }} onChangeStatus={(status) => { if (!updateStatus(selectedTask.id, status)) return; if (tour.isTaskActive()) tour.taskStatusChanged(status); else if (tour.isInitialActive() && tour.activeIndex() === 7) { setSelectedTaskId(null); setTimeout(() => tour.moveTo(8), 80) } }} onEdit={() => { if (tour.isInitialActive() && tour.activeIndex() === 6) tour.pause(7); setTaskForm(selectedTask) }} onDuplicate={() => duplicateSelectedTask(selectedTask)} onDelete={() => setDeleteTarget({ kind: 'task', id: selectedTask.id })} />}
-      {projectForm && <ProjectForm key={projectForm === 'new' ? 'new' : projectForm.id} project={projectForm === 'new' ? undefined : projectForm} workspace={workspace} onSave={saveProject} onCancel={() => { if (tour.isProjectActive()) tour.finishProject(); setProjectForm(null) }} />}
-      {taskForm && currentProject && <TaskForm key={taskForm === 'new' ? 'new' : taskForm.id} task={taskForm === 'new' ? undefined : taskForm} projectId={currentProject.id} workspace={workspace} guided={taskForm === 'new' && guidedTaskForm} onSave={(input) => { if (saveTask(input)) tour.resume() }} onCancel={() => { if (tour.isTaskActive()) tour.finishTask(); setGuidedTaskForm(false); setTaskForm(null); tour.resume() }} />}
+      {selectedTask && !taskForm && <TaskDrawer task={selectedTask} project={workspace.projects.find((project) => project.id === selectedTask.projectId)} people={workspace.people} activities={workspace.activities.filter((activity) => activity.entityType === 'task' && activity.entityId === selectedTask.id)} onClose={() => { if (tour.isTaskActive() || (tour.isInitialActive() && [6, 7].includes(tour.activeIndex() ?? -1))) { tour.cancel(); return } setSelectedTaskId(null) }} onChangeStatus={(status) => { console.info('DASH_STATUS', status, tour.isTaskActive(), tour.isInitialActive(), tour.activeIndex()); if (!updateStatus(selectedTask.id, status)) return; if (tour.isTaskActive()) tour.taskStatusChanged(status); else tour.initialStatusChanged() }} onEdit={() => { if (tour.isInitialActive() && tour.activeIndex() === 6) tour.pause(6); setTaskForm(selectedTask) }} onDuplicate={() => duplicateSelectedTask(selectedTask)} onDelete={() => setDeleteTarget({ kind: 'task', id: selectedTask.id })} />}
+      {projectForm && <ProjectForm key={projectForm === 'new' ? 'new' : projectForm.id} project={projectForm === 'new' ? undefined : projectForm} workspace={workspace} onSave={saveProject} onCancel={() => { if (tour.isProjectActive()) { tour.cancel(); return } setProjectForm(null) }} />}
+      {taskForm && currentProject && <TaskForm key={taskForm === 'new' ? 'new' : taskForm.id} task={taskForm === 'new' ? undefined : taskForm} projectId={currentProject.id} workspace={workspace} guided={taskForm === 'new' && guidedTaskForm} onSave={(input) => { const changed = taskForm !== 'new' && (input.assigneeId !== taskForm.assigneeId || input.dueDate !== taskForm.dueDate); if (saveTask(input)) tour.resume(scenarioKey, changed ? 7 : undefined) }} onCancel={() => { if (tour.isTaskActive()) { tour.cancel(); return } setGuidedTaskForm(false); setTaskForm(null); tour.resume() }} />}
     </main>
   )
 }
