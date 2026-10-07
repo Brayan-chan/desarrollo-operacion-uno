@@ -11,6 +11,7 @@ export type StorageSuccess<T> = { ok: true; value: T }
 export type StorageResult<T> = StorageSuccess<T> | StorageFailure
 export type StorageSnapshot = { entries: Record<string, string> }
 export type WorkspaceLoad = { workspace: Workspace; source: 'default' | 'stored' | 'migrated' | 'recovered' }
+export type ScenarioStorageInfo = { state: 'saved' | 'example' | 'invalid' | 'unavailable'; projects: number; tasks: number; people: number; activities: number; updatedAt: string | null }
 
 type StorageReader = Pick<Storage, 'getItem'>
 type StorageWriter = Pick<Storage, 'getItem' | 'setItem' | 'removeItem' | 'length' | 'key'>
@@ -113,6 +114,19 @@ export function loadWorkspace(storage: StorageReader, scenario: ScenarioKey, fal
     return { ok: true, value: { workspace: parsed.value.workspace, source: parsed.value.migrated ? 'migrated' : 'stored' } }
   } catch {
     return { ok: false, code: 'unavailable', message: 'El almacenamiento del navegador no está disponible.' }
+  }
+}
+
+export function readScenarioStorageInfo(storage: StorageReader, scenario: ScenarioKey, fallback: Workspace): ScenarioStorageInfo {
+  try {
+    const raw = storage.getItem(storageKey(scenario))
+    if (raw === null) return { state: 'example', projects: fallback.projects.length, tasks: fallback.tasks.length, people: fallback.people.length, activities: fallback.activities.length, updatedAt: null }
+    const parsed = deserializeWorkspace(raw, fallback)
+    if (!parsed.ok) return { state: 'invalid', projects: 0, tasks: 0, people: 0, activities: 0, updatedAt: null }
+    const saved = parsed.value.workspace
+    return { state: 'saved', projects: saved.projects.length, tasks: saved.tasks.length, people: saved.people.length, activities: saved.activities.length, updatedAt: saved.updatedAt }
+  } catch {
+    return { state: 'unavailable', projects: 0, tasks: 0, people: 0, activities: 0, updatedAt: null }
   }
 }
 

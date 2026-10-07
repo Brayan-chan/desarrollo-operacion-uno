@@ -7,7 +7,7 @@ import { Plus, Sparkles } from 'lucide-react'
 import { scenarios } from '@/data/scenarios'
 import { useDemoWorkspace } from '@/hooks/use-demo-workspace'
 import { useDemoTour } from '@/hooks/use-demo-tour'
-import { ACTIVE_SCENARIO_KEY, clearAllDemoData, createStorageSnapshot, readActiveScenario, restoreStorageSnapshot, type StorageSnapshot } from '@/lib/demo-storage'
+import { ACTIVE_SCENARIO_KEY, clearAllDemoData, createStorageSnapshot, readActiveScenario, removeScenario, restoreStorageSnapshot, type StorageSnapshot } from '@/lib/demo-storage'
 import { calculateDueState, changeTaskStatus, createProject, createTask, deleteProject, deleteTask, duplicateTask, getLocalDate, moveTask, setProjectArchived, updateProject, updateTask, type ProjectInput, type TaskInput } from '@/lib/workspace'
 import { getProjectMetrics } from '@/lib/metrics'
 import type { Project, ScenarioKey, Status, Task } from '@/types/demo'
@@ -32,7 +32,8 @@ export function Dashboard() {
   const [search, setSearch] = useState('')
   const [showScenario, setShowScenario] = useState(false)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
-  const [confirmAction, setConfirmAction] = useState<'scenario' | 'all' | 'clear' | null>(null)
+  const [confirmAction, setConfirmAction] = useState<'scenario' | 'all' | 'clear' | 'switch-reset' | null>(null)
+  const [pendingScenarioReset, setPendingScenarioReset] = useState<ScenarioKey | null>(null)
   const [undoSnapshot, setUndoSnapshot] = useState<StorageSnapshot | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [resetKey, setResetKey] = useState(0)
@@ -163,10 +164,28 @@ export function Dashboard() {
     tour.resume(key)
   }
 
+  const chooseScenario = (key: ScenarioKey, resetData: boolean) => {
+    if (resetData) { setPendingScenarioReset(key); setConfirmAction('switch-reset'); return }
+    selectScenario(key)
+  }
+
   const performDestructiveAction = () => {
     if (!confirmAction) return
     const snapshot = createStorageSnapshot(window.localStorage)
     if (!snapshot.ok) { setNotice(snapshot.message); setConfirmAction(null); return }
+    if (confirmAction === 'switch-reset') {
+      if (!pendingScenarioReset) { setConfirmAction(null); return }
+      const target = pendingScenarioReset
+      const result = removeScenario(window.localStorage, target)
+      if (!result.ok) { setNotice(result.message); setConfirmAction(null); return }
+      selectScenario(target)
+      if (target === scenarioKey) setResetKey((value) => value + 1)
+      setUndoSnapshot(snapshot.value)
+      setNotice(`Escenario “${scenarios[target].label}” reiniciado con los datos de ejemplo.`)
+      setPendingScenarioReset(null)
+      setConfirmAction(null)
+      return
+    }
     const result = confirmAction === 'scenario' ? restore() : clearAllDemoData(window.localStorage)
     if (!result.ok) { setNotice(result.message); setConfirmAction(null); return }
     setUndoSnapshot(snapshot.value)
@@ -208,15 +227,15 @@ export function Dashboard() {
               <ProjectSummary project={currentProject} tasksCount={metrics.total} completed={metrics.completed} overdue={metrics.overdue} progress={metrics.progress} today={today} people={workspace.people} activities={workspace.activities.filter((activity) => activity.metadata.projectId === currentProject.id || activity.entityId === currentProject.id || projectTasks.some((task) => task.id === activity.entityId))} onViewAll={() => setActiveView('Actividad')} />
             </div>
             </>}
-            <div className="mt-8 flex flex-col gap-3 rounded-xl border border-[#ddd2f3] bg-[#f7f4ff] p-5 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-start gap-3"><div className="grid size-9 shrink-0 place-items-center rounded-lg bg-white text-[#694ba8] shadow-sm"><Sparkles size={17} /></div><div><p className="text-sm font-semibold text-[#4e3e79]">No es otro tablero. Es una operación adaptable.</p><p className="mt-1 text-xs leading-5 text-[#665985]">Explora escenarios para ver cómo Operación Uno modela procesos distintos: aprobaciones, responsables, dependencias y entregas.</p></div></div><button onClick={openScenario} className="min-h-10 shrink-0 rounded-lg bg-[#694ba8] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#5c4098]">Abrir centro de demo</button></div>
+            <div className="mt-8 flex flex-col gap-3 rounded-xl border border-[#ddd2f3] bg-[#f7f4ff] p-5 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-start gap-3"><div className="grid size-9 shrink-0 place-items-center rounded-lg bg-white text-[#694ba8] shadow-sm"><Sparkles size={17} /></div><div><p className="text-sm font-semibold text-[#4e3e79]">No es otro tablero. Es una operación adaptable.</p><p className="mt-1 text-xs leading-5 text-[#665985]">Explora ejemplos de proyectos, responsables, tareas y entregas. Aprobaciones y dependencias son posibles ampliaciones, no funciones de esta demo.</p></div></div><button onClick={openScenario} className="min-h-10 shrink-0 rounded-lg bg-[#694ba8] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#5c4098]">Abrir centro de demo</button></div>
             </> : <FocusedView view={activeView} workspace={workspace} today={today} onSelectProject={(project) => { setWorkspace((current) => ({ ...current, selectedProjectId: project.id, updatedAt: new Date().toISOString() })); setActiveView('Inicio') }} onOpenTask={openTask} onCreateProject={() => setProjectForm('new')} onCreateTask={() => setTaskForm('new')} onOpenDemo={openScenario} onRestore={() => setConfirmAction('scenario')} />}
           </div>
         </section>
       </div>
-      {showScenario && <ScenarioDialog current={scenarioKey} onSelect={selectScenario} onClose={closeScenario} onRestore={() => setConfirmAction('scenario')} onRestoreAll={() => setConfirmAction('all')} onClearAll={() => setConfirmAction('clear')} onRestartTour={() => { setShowScenario(false); tour.restart() }} onStartProjectTour={() => tour.startProject()} onStartTaskTour={() => tour.startTask()} canStartTask={Boolean(currentProject && !currentProject.archived)} />}
-      {confirmAction && <ConfirmDialog title={confirmAction === 'scenario' ? '¿Restaurar este escenario?' : confirmAction === 'all' ? '¿Restaurar toda la demo?' : '¿Borrar los datos locales?'} description={confirmAction === 'scenario' ? 'Se reemplazarán los cambios de este escenario por sus datos iniciales.' : confirmAction === 'all' ? 'Todos los escenarios volverán a sus datos iniciales.' : 'Se eliminarán los datos de Operación Uno guardados en este navegador.'} confirmLabel={confirmAction === 'clear' ? 'Borrar datos' : 'Restaurar'} onConfirm={performDestructiveAction} onCancel={() => setConfirmAction(null)} />}
+      {showScenario && <ScenarioDialog current={scenarioKey} onSelect={chooseScenario} onClose={closeScenario} onCreateProject={() => { tour.cancel(); setShowScenario(false); setProjectForm('new') }} onRestore={() => setConfirmAction('scenario')} onRestoreAll={() => setConfirmAction('all')} onClearAll={() => setConfirmAction('clear')} onRestartTour={() => { setShowScenario(false); tour.restart() }} onStartProjectTour={() => tour.startProject()} onStartTaskTour={() => tour.startTask()} canStartTask={Boolean(currentProject && !currentProject.archived)} />}
+      {confirmAction && <ConfirmDialog title={confirmAction === 'scenario' ? '¿Restaurar este escenario?' : confirmAction === 'all' ? '¿Restaurar toda la demo?' : confirmAction === 'switch-reset' ? `¿Reiniciar ${scenarios[pendingScenarioReset ?? scenarioKey].label}?` : '¿Borrar los datos locales?'} description={confirmAction === 'scenario' ? 'Se reemplazarán los cambios de este escenario por sus datos iniciales.' : confirmAction === 'all' ? 'Todos los escenarios volverán a sus datos iniciales.' : confirmAction === 'switch-reset' ? 'Se reemplazarán únicamente los datos guardados de esta industria por su ejemplo inicial. Los demás escenarios permanecerán intactos.' : 'Se eliminarán los datos de Operación Uno guardados en este navegador.'} confirmLabel={confirmAction === 'clear' ? 'Borrar datos' : confirmAction === 'switch-reset' ? 'Reiniciar y entrar' : 'Restaurar'} onConfirm={performDestructiveAction} onCancel={() => { setConfirmAction(null); setPendingScenarioReset(null) }} />}
       {deleteTarget && <ConfirmDialog title={deleteTarget.kind === 'project' ? '¿Eliminar proyecto?' : '¿Eliminar tarea?'} description="Esta acción elimina el elemento de la demo local. Podrás deshacerla inmediatamente." confirmLabel="Eliminar" onConfirm={confirmDelete} onCancel={() => setDeleteTarget(null)} />}
-      {selectedTask && !taskForm && <TaskDrawer task={selectedTask} project={workspace.projects.find((project) => project.id === selectedTask.projectId)} people={workspace.people} activities={workspace.activities.filter((activity) => activity.entityType === 'task' && activity.entityId === selectedTask.id)} onClose={() => { if (tour.isTaskActive() || (tour.isInitialActive() && [6, 7].includes(tour.activeIndex() ?? -1))) { tour.cancel(); return } setSelectedTaskId(null) }} onChangeStatus={(status) => { console.info('DASH_STATUS', status, tour.isTaskActive(), tour.isInitialActive(), tour.activeIndex()); if (!updateStatus(selectedTask.id, status)) return; if (tour.isTaskActive()) tour.taskStatusChanged(status); else tour.initialStatusChanged() }} onEdit={() => { if (tour.isInitialActive() && tour.activeIndex() === 6) tour.pause(6); setTaskForm(selectedTask) }} onDuplicate={() => duplicateSelectedTask(selectedTask)} onDelete={() => setDeleteTarget({ kind: 'task', id: selectedTask.id })} />}
+      {selectedTask && !taskForm && <TaskDrawer task={selectedTask} project={workspace.projects.find((project) => project.id === selectedTask.projectId)} people={workspace.people} activities={workspace.activities.filter((activity) => activity.entityType === 'task' && activity.entityId === selectedTask.id)} onClose={() => { if (tour.isTaskActive() || (tour.isInitialActive() && [6, 7].includes(tour.activeIndex() ?? -1))) { tour.cancel(); return } setSelectedTaskId(null) }} onChangeStatus={(status) => { if (!updateStatus(selectedTask.id, status)) return; if (tour.isTaskActive()) tour.taskStatusChanged(status); else tour.initialStatusChanged() }} onEdit={() => { if (tour.isInitialActive() && tour.activeIndex() === 6) tour.pause(6); setTaskForm(selectedTask) }} onDuplicate={() => duplicateSelectedTask(selectedTask)} onDelete={() => setDeleteTarget({ kind: 'task', id: selectedTask.id })} />}
       {projectForm && <ProjectForm key={projectForm === 'new' ? 'new' : projectForm.id} project={projectForm === 'new' ? undefined : projectForm} workspace={workspace} onSave={saveProject} onCancel={() => { if (tour.isProjectActive()) { tour.cancel(); return } setProjectForm(null) }} />}
       {taskForm && currentProject && <TaskForm key={taskForm === 'new' ? 'new' : taskForm.id} task={taskForm === 'new' ? undefined : taskForm} projectId={currentProject.id} workspace={workspace} guided={taskForm === 'new' && guidedTaskForm} onSave={(input) => { const changed = taskForm !== 'new' && (input.assigneeId !== taskForm.assigneeId || input.dueDate !== taskForm.dueDate); if (saveTask(input)) tour.resume(scenarioKey, changed ? 7 : undefined) }} onCancel={() => { if (tour.isTaskActive()) { tour.cancel(); return } setGuidedTaskForm(false); setTaskForm(null); tour.resume() }} />}
     </main>
