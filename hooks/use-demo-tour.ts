@@ -119,15 +119,13 @@ export function useDemoTour({ scenarioKey, tour, isHydrating, saveTour, prepare,
   }, [])
 
   const taskSaved = useCallback(() => {
-    console.info('TASK_SAVED', modeRef.current, instanceRef.current?.isActive(), instanceRef.current?.getActiveIndex())
-    if (modeRef.current !== 'task' || !instanceRef.current?.isActive()) return
+    if (modeRef.current !== 'task' || !instanceRef.current || instanceRef.current.getActiveIndex() === undefined) return
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => { instanceRef.current?.moveTo(6); timerRef.current = null }, 180)
   }, [])
 
   const taskStatusChanged = useCallback((status: string) => {
-    console.info('TOUR_TASK_STATUS', status, modeRef.current, instanceRef.current?.isActive(), instanceRef.current?.getActiveIndex())
-    if (modeRef.current !== 'task' || !instanceRef.current?.isActive()) return
+    if (modeRef.current !== 'task' || !instanceRef.current || instanceRef.current.getActiveIndex() === undefined) return
     const index = instanceRef.current.getActiveIndex()
     if (index === 7 && status === 'En progreso') {
       instanceRef.current.moveTo(8)
@@ -138,10 +136,17 @@ export function useDemoTour({ scenarioKey, tour, isHydrating, saveTour, prepare,
   }, [])
 
   const cancel = useCallback(() => {
+    if (pendingRef.current !== null) {
+      pendingRef.current = null
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null }
+      if (modeRef.current === 'initial') persist({ completed: false, dismissed: true, lastStep: undefined })
+      valuesRef.current.restoreInterface()
+      return
+    }
     if (!instanceRef.current?.isActive()) return
     intentRef.current = 'dismiss'
     instanceRef.current.destroy()
-  }, [])
+  }, [persist])
 
   const projectSelected = useCallback((hasTasks: boolean) => {
     if (modeRef.current !== 'initial' || instanceRef.current?.getActiveIndex() !== 3) return
@@ -191,6 +196,14 @@ export function useDemoTour({ scenarioKey, tour, isHydrating, saveTour, prepare,
       },
       onPopoverRender: (popover, options) => {
         if (popover.footerButtons.querySelector('[data-tour-skip]')) return
+        if (modeRef.current === 'project' && options.index === 6) {
+          const createTask = document.createElement('button')
+          createTask.type = 'button'
+          createTask.className = 'driver-popover-footer-btn operacion-uno-tour-task-cta'
+          createTask.textContent = 'Crear primera tarea'
+          createTask.addEventListener('click', () => document.querySelector<HTMLButtonElement>('[aria-label="Gestión de proyectos"] button')?.click())
+          popover.footerButtons.appendChild(createTask)
+        }
         const skip = document.createElement('button')
         skip.type = 'button'
         skip.className = 'driver-popover-footer-btn operacion-uno-tour-skip'
@@ -253,7 +266,6 @@ export function useDemoTour({ scenarioKey, tour, isHydrating, saveTour, prepare,
       onCloseClick: (_element, _step, options) => { intentRef.current = 'dismiss'; options.driver.destroy() },
       onDoneClick: (_element, _step, options) => { intentRef.current = 'complete'; options.driver.destroy() },
       onDestroyed: () => {
-        console.info('TOUR_DESTROYED', modeRef.current, intentRef.current, instanceRef.current?.getActiveIndex())
         if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null }
         if (positionTimerRef.current) { clearTimeout(positionTimerRef.current); positionTimerRef.current = null }
         if (intentRef.current === 'dismiss') valuesRef.current.restoreInterface()
@@ -284,5 +296,5 @@ export function useDemoTour({ scenarioKey, tour, isHydrating, saveTour, prepare,
     return () => clearTimeout(timer)
   }, [isHydrating, scenarioKey, start, tour.completed, tour.dismissed, tour.lastStep])
 
-  return { start, restart, startProject, finishProject, projectSaved, startTask, finishTask, taskSaved, taskStatusChanged, projectSelected, initialStatusChanged, cancel, pause, resume, isProjectActive: () => modeRef.current === 'project' && Boolean(instanceRef.current?.isActive()), isTaskActive: () => modeRef.current === 'task' && Boolean(instanceRef.current?.isActive()), isInitialActive: () => modeRef.current === 'initial' && Boolean(instanceRef.current?.isActive()), isActive: () => Boolean(instanceRef.current?.isActive()), activeIndex: () => instanceRef.current?.getActiveIndex(), moveTo: (index: number) => instanceRef.current?.moveTo(index) }
+  return { start, restart, startProject, finishProject, projectSaved, startTask, finishTask, taskSaved, taskStatusChanged, projectSelected, initialStatusChanged, cancel, pause, resume, isProjectActive: () => modeRef.current === 'project' && instanceRef.current?.getActiveIndex() !== undefined, isTaskActive: () => modeRef.current === 'task' && instanceRef.current?.getActiveIndex() !== undefined, isInitialActive: () => modeRef.current === 'initial' && instanceRef.current?.getActiveIndex() !== undefined, isActive: () => Boolean(instanceRef.current?.isActive()), activeIndex: () => instanceRef.current?.getActiveIndex(), moveTo: (index: number) => instanceRef.current?.moveTo(index) }
 }
