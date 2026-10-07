@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { scenarios } from '@/data/scenarios'
-import { ACTIVE_SCENARIO_KEY, clearAllDemoData, createStorageSnapshot, deserializeWorkspace, loadWorkspace, parseStoredWorkspace, readActiveScenario, restoreStorageSnapshot, saveWorkspace, storageKey } from '@/lib/demo-storage'
+import { ACTIVE_SCENARIO_KEY, clearAllDemoData, createStorageSnapshot, deserializeWorkspace, loadWorkspace, parseStoredWorkspace, readActiveScenario, readScenarioStorageInfo, restoreStorageSnapshot, saveWorkspace, storageKey } from '@/lib/demo-storage'
 
 describe('demo storage', () => {
   const fallback = scenarios.agencia.workspace
@@ -55,6 +55,15 @@ describe('demo storage', () => {
     const result = loadWorkspace(storage, 'software', scenarios.software.workspace)
     expect(result.ok && result.value.source).toBe('stored')
     expect(data.size).toBe(1)
+  })
+
+  it('shows saved counts without treating example data as saved', () => {
+    const empty = readScenarioStorageInfo({ getItem: () => null }, 'agencia', fallback)
+    expect(empty).toMatchObject({ state: 'example', projects: 2, tasks: 6 })
+    const stored = readScenarioStorageInfo({ getItem: () => JSON.stringify(fallback) }, 'agencia', fallback)
+    expect(stored).toMatchObject({ state: 'saved', projects: 2, tasks: 6, people: fallback.people.length })
+    const invalid = readScenarioStorageInfo({ getItem: () => 'broken' }, 'agencia', fallback)
+    expect(invalid.state).toBe('invalid')
   })
 
   it('reports quota exhaustion without claiming the save succeeded', () => {
