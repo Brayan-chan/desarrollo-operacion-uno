@@ -7,7 +7,7 @@ export const projectTourSteps: DriveStep[] = [
   { element: '[data-tour="project-fields"]', popover: { title: 'Define las fechas', description: 'Confirma el inicio y fija la entrega. La entrega no puede ser anterior al inicio.' } },
   { element: '[data-tour="project-save"]', popover: { title: 'Guarda el proyecto', description: 'Pulsa “Crear proyecto” o “Siguiente”. Si falta algún dato, verás el error junto al campo y la guía no avanzará.' } },
   { element: '[data-tour="project-selector"]', waitForElement: 1200, popover: { title: 'Proyecto creado', description: 'Tu proyecto ya está seleccionado. El tablero, las métricas y las tareas se enfocan en él.', disableButtons: ['previous'] } },
-  { element: '[aria-label="Gestión de proyectos"]', popover: { title: 'Crea la primera tarea', description: 'Tu proyecto está listo. Pulsa “Nueva tarea” si quieres agregar su primer entregable, o termina esta guía para hacerlo después.', disableButtons: ['previous'] } },
+  { element: '[aria-label="Gestión de proyectos"] button', popover: { title: 'Crea la primera tarea', description: 'Tu proyecto está listo. Pulsa “Nueva tarea” si quieres agregar su primer entregable, o termina esta guía para hacerlo después.', disableButtons: ['previous'] } },
 ]
 
 export type GuidedProjectFields = { name: string; ownerId: string; startDate: string; dueDate: string }
